@@ -92,6 +92,7 @@ LOG_DIR = Path("/arianna_core/log")
 SESSION_ID = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
 LOG_PATH = LOG_DIR / f"{SESSION_ID}.log"
 HISTORY_PATH = LOG_DIR / "history"
+PY_TIMEOUT = 5
 
 Handler = Callable[[str], Awaitable[Tuple[str, str | None]]]
 
@@ -309,6 +310,35 @@ async def handle_run(user: str) -> Tuple[str, str | None]:
     return reply, colored
 
 
+async def handle_py(user: str) -> Tuple[str, str | None]:
+    code = user.partition(" ")[2]
+    if not code:
+        reply = "Usage: /py <code>"
+        return reply, reply
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-I",
+            "-c",
+            code,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=PY_TIMEOUT)
+    except asyncio.TimeoutError:
+        proc.kill()
+        await proc.communicate()
+        reply = "execution timed out"
+        return reply, color(reply, SETTINGS.red)
+    output = stdout.decode().strip()
+    err = stderr.decode().strip()
+    if proc.returncode != 0:
+        reply = err or "error"
+        return reply, color(reply, SETTINGS.red)
+    reply = output
+    return reply, reply
+
+
 async def handle_clear(_: str) -> Tuple[str, str | None]:
     os.system("clear")
     return "", None
@@ -373,6 +403,7 @@ CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
     "/status": (handle_status, "show basic system metrics"),
     "/time": (handle_time, "show current UTC time"),
     "/run": (handle_run, "run a shell command"),
+    "/py": (handle_py, "execute Python code"),
     "/summarize": (handle_summarize, "summarize log entries"),
     "/clear": (handle_clear, "clear the terminal screen"),
     "/history": (handle_history, "show command history"),
