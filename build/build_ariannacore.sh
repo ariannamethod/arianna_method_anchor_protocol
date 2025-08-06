@@ -79,7 +79,11 @@ for s in "${CORE_SCRIPTS[@]}"; do
 done
 
 # //: build and stage patched apk-tools
-APK_BIN="$("$SCRIPT_DIR/build_apk_tools.sh")"
+APK_SRC="$ROOT_DIR/for-codex-alpine-apk-tools"
+APK_BUILD="$SCRIPT_DIR/apk-tools"
+rm -rf "$APK_BUILD"
+cp -r "$APK_SRC" "$APK_BUILD"
+APK_BIN="$(APK_TOOLS_DIR="$APK_BUILD" "$SCRIPT_DIR/build_apk_tools.sh")"
 install -Dm755 "$APK_BIN" acroot/usr/bin/apk
 
 # //: install runtime packages using the patched apk
@@ -89,6 +93,8 @@ if [ "$WITH_PY" -eq 1 ]; then
 fi
 # shellcheck disable=SC2086
 "$APK_BIN" --root acroot --repositories-file /etc/apk/repositories add --no-cache $PKGS
+# Strip docs to keep footprint small
+rm -rf acroot/usr/share/man acroot/usr/share/doc
 
 # //: include assistant, startup hook, motd and log dir
 install -Dm755 "$ROOT_DIR/assistant.py" acroot/usr/bin/assistant
