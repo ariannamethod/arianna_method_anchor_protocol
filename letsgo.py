@@ -214,6 +214,15 @@ def history(limit: int = 20) -> str:
     return "\n".join(lines[-limit:])
 
 
+def show_history() -> str:
+    """Return the entire command history."""
+    try:
+        with HISTORY_PATH.open() as fh:
+            return fh.read()
+    except FileNotFoundError:
+        return "no history"
+
+
 def _iter_log_lines() -> Iterable[str]:
     """Yield log lines from all log files in order."""
     for file in sorted(LOG_DIR.glob("*.log")):
@@ -301,8 +310,10 @@ async def handle_clear(_: str) -> Tuple[str, str | None]:
 
 async def handle_history(user: str) -> Tuple[str, str | None]:
     parts = user.split()
-    limit = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 20
-    reply = history(limit)
+    if len(parts) > 1 and parts[1].isdigit():
+        reply = history(int(parts[1]))
+    else:
+        reply = show_history()
     return reply, reply
 
 
