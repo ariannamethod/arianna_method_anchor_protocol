@@ -4,6 +4,11 @@
 
 🔹 This is not just a Linux kernel. Arianna Core is a compact AI-first kernel framework.
 
+## Continuous Integration
+
+The CI pipeline builds the kernel and boots it in QEMU using only CPU resources. GPU devices and drivers are absent, and QEMU
+is invoked with software acceleration so the workflow succeeds on generic CPU-only runners.
+
 ## Building
 
 The project ships a single entry script, `./build/build_ariannacore.sh`, which acquires kernel sources, prepares an `arianna_core_root` userland and emits a flat image. Run it from a fresh checkout to obtain a `bzImage` coupled with an `initramfs` that is aware of the assistant and the motd.
