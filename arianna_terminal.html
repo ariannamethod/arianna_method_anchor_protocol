@@ -42,7 +42,10 @@
   <button id="token-save">Save</button>
 </dialog>
 <div id="terminal-container"></div>
+<canvas id="three-canvas" class="frame"></canvas>
 <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.164.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.164.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 if (window.Telegram && window.Telegram.WebApp) {
   window.Telegram.WebApp.ready();
@@ -55,6 +58,62 @@ const container = document.getElementById('terminal-container');
 const sessions = {};
 let activeSid = null;
 let tabCount = 0;
+
+const threeCanvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas: threeCanvas });
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(
+  75,
+  threeCanvas.clientWidth / threeCanvas.clientHeight,
+  0.1,
+  1000
+);
+camera.position.set(0, 0, 5);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+function resizeRenderer() {
+  renderer.setSize(threeCanvas.clientWidth, threeCanvas.clientHeight);
+  camera.aspect = threeCanvas.clientWidth / threeCanvas.clientHeight;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resizeRenderer);
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+resizeRenderer();
+animate();
+
+function handlePlot(dataStr) {
+  let payload;
+  try {
+    payload = JSON.parse(dataStr);
+  } catch (e) {
+    console.error('Invalid plot data', e);
+    return;
+  }
+  if (!payload.points) return;
+  const geometry = new THREE.BufferGeometry();
+  const vertices = new Float32Array(payload.points.flat());
+  geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  const material = new THREE.LineBasicMaterial({ color: 0x0000ff });
+  const line = new THREE.Line(geometry, material);
+  scene.add(line);
+}
+
+function handleModel(modelStr) {
+  while (scene.children.length) {
+    scene.remove(scene.children[0]);
+  }
+  let mesh;
+  const name = modelStr.trim().toLowerCase();
+  if (name === 'cube') {
+    mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshNormalMaterial());
+  } else if (name === 'sphere') {
+    mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), new THREE.MeshNormalMaterial());
+  }
+  if (mesh) scene.add(mesh);
+}
 function setStatus(state) {
   statusEl.textContent = state;
   statusEl.className = state;
@@ -71,7 +130,18 @@ function connect(sid, term) {
     term.write('>> ');
   };
   ws.onmessage = ev => {
-    term.write('\r\n' + ev.data + '\r\n>> ');
+    const lines = ev.data.split('\n');
+    let out = '';
+    for (const line of lines) {
+      if (line.startsWith('__PLOT__')) {
+        handlePlot(line.slice(8));
+      } else if (line.startsWith('__MODEL__')) {
+        handleModel(line.slice(9));
+      } else if (line) {
+        out += '\r\n' + line;
+      }
+    }
+    term.write(out + '\r\n>> ');
   };
   ws.onclose = () => {
     setStatus('close');
