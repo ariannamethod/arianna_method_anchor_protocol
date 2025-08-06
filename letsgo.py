@@ -5,15 +5,24 @@ from __future__ import annotations
 
 import os
 import socket
-import subprocess
 import sys
 import readline
 import atexit
 import asyncio
+import importlib
+import pkgutil
 from datetime import datetime
 from pathlib import Path
 from collections import deque
-from typing import Callable, Deque, Iterable, List
+from typing import (
+    Awaitable,
+    Callable,
+    Deque,
+    Dict,
+    Iterable,
+    List,
+    Tuple,
+)
 from dataclasses import dataclass
 import re
 
@@ -78,16 +87,9 @@ SESSION_ID = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
 LOG_PATH = LOG_DIR / f"{SESSION_ID}.log"
 HISTORY_PATH = LOG_DIR / "history"
 
-COMMANDS: List[str] = [
-    "/status",
-    "/time",
-    "/run",
-    "/summarize",
-    "/clear",
-    "/history",
-    "/help",
-    "/search",
-]
+Handler = Callable[[str], Awaitable[Tuple[str, str | None]]]
+COMMANDS: List[str] = []
+COMMAND_HANDLERS: Dict[str, Handler] = {}
 
 
 def _ensure_log_dir() -> None:
@@ -259,12 +261,123 @@ def search_history(pattern: str) -> str:
     return "\n".join(matches) if matches else "no matches"
 
 
+async def handle_status(_: str) -> Tuple[str, str | None]:
+    reply = status()
+    return reply, color(reply, SETTINGS.green)
+
+
+async def handle_time(_: str) -> Tuple[str, str | None]:
+    reply = current_time()
+    return reply, reply
+
+
+async def handle_run(user: str) -> Tuple[str, str | None]:
+    command = user.partition(" ")[2]
+    lines: list[str] = []
+
+    def _cb(line: str) -> None:
+        lines.append(line)
+        print(line)
+
+    reply = await run_command(command, _cb)
+    combined = "\n".join(lines).strip()
+    colored = reply if reply != combined else None
+    reply = reply if colored else combined
+    return reply, colored
+
+
+async def handle_clear(_: str) -> Tuple[str, str | None]:
+    reply = clear_screen()
+    return reply, reply
+
+
+async def handle_history(user: str) -> Tuple[str, str | None]:
+    parts = user.split()
+    limit = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 20
+    reply = history(limit)
+    return reply, reply
+
+
+async def handle_help(_: str) -> Tuple[str, str | None]:
+    reply = (
+        "Commands: /status, /time, /run <cmd>, "
+        "/summarize [term [limit]] [--history], "
+        "/clear, /history [N], /search <pattern>\n"
+        "Config: ~/.letsgo/config for prompt, colors, max_log_files"
+    )
+    return reply, reply
+
+
+async def handle_summarize(user: str) -> Tuple[str, str | None]:
+    parts = user.split()[1:]
+    history_mode = False
+    if "--history" in parts:
+        parts.remove("--history")
+        history_mode = True
+    limit = 5
+    if parts and parts[-1].isdigit():
+        limit = int(parts[-1])
+        parts = parts[:-1]
+    term = " ".join(parts) if parts else None
+    reply = summarize(term, limit, history=history_mode)
+    return reply, reply
+
+
+async def handle_search(user: str) -> Tuple[str, str | None]:
+    pattern = user.partition(" ")[2]
+    reply = search_history(pattern)
+    return reply, reply
+
+
+def register_core(commands: List[str], handlers: Dict[str, Handler]) -> None:
+    commands.extend(
+        [
+            "/status",
+            "/time",
+            "/run",
+            "/summarize",
+            "/clear",
+            "/history",
+            "/help",
+            "/search",
+        ]
+    )
+    handlers.update(
+        {
+            "/status": handle_status,
+            "/time": handle_time,
+            "/run": handle_run,
+            "/summarize": handle_summarize,
+            "/clear": handle_clear,
+            "/history": handle_history,
+            "/help": handle_help,
+            "/search": handle_search,
+        }
+    )
+
+
+def _load_plugins(commands: List[str], handlers: Dict[str, Handler]) -> None:
+    plugin_dir = Path(__file__).with_name("plugins")
+    if not plugin_dir.exists():
+        return
+    for module_info in pkgutil.iter_modules([str(plugin_dir)]):
+        module = importlib.import_module(f"plugins.{module_info.name}")
+        if hasattr(module, "register"):
+            module.register(commands, handlers)
+
+
 async def main() -> None:
     _ensure_log_dir()
     try:
         readline.read_history_file(str(HISTORY_PATH))
     except FileNotFoundError:
         pass
+
+    COMMANDS.clear()
+    COMMAND_HANDLERS.clear()
+    register_core(COMMANDS, COMMAND_HANDLERS)
+    _load_plugins(COMMANDS, COMMAND_HANDLERS)
+
     readline.parse_and_bind("tab: complete")
 
     def completer(text: str, state: int) -> str | None:
@@ -301,59 +414,10 @@ async def main() -> None:
         if user.strip().lower() in {"exit", "quit"}:
             break
         log(f"user:{user}")
-        if user.strip() == "/status":
-            reply = status()
-            colored = color(reply, SETTINGS.green)
-        elif user.strip() == "/time":
-            reply = current_time()
-            colored = reply
-        elif user.startswith("/run "):
-            lines: list[str] = []
-            def _cb(line: str) -> None:
-                lines.append(line)
-                print(line)
-
-            reply = await run_command(user.partition(" ")[2], _cb)
-            combined = "\n".join(lines).strip()
-            colored = reply if reply != combined else None
-            reply = reply if colored else combined
-        elif user.strip() == "/clear":
-            reply = clear_screen()
-            colored = reply
-        elif user.startswith("/history"):
-            parts = user.split()
-            limit = (
-                int(parts[1])
-                if len(parts) > 1 and parts[1].isdigit()
-                else 20
-            )
-            reply = history(limit)
-            colored = reply
-        elif user.strip() == "/help":
-            reply = (
-                "Commands: /status, /time, /run <cmd>, "
-                "/summarize [term [limit]] [--history], "
-                "/clear, /history [N], /search <pattern>\n"
-                "Config: ~/.letsgo/config for prompt, colors, max_log_files"
-            )
-            colored = reply
-        elif user.startswith("/summarize"):
-            parts = user.split()[1:]
-            history_mode = False
-            if "--history" in parts:
-                parts.remove("--history")
-                history_mode = True
-            limit = 5
-            if parts and parts[-1].isdigit():
-                limit = int(parts[-1])
-                parts = parts[:-1]
-            term = " ".join(parts) if parts else None
-            reply = summarize(term, limit, history=history_mode)
-            colored = reply
-        elif user.startswith("/search "):
-            pattern = user.partition(" ")[2]
-            reply = search_history(pattern)
-            colored = reply
+        base = user.split()[0]
+        handler = COMMAND_HANDLERS.get(base)
+        if handler:
+            reply, colored = await handler(user)
         else:
             reply = f"echo: {user}"
             colored = reply
