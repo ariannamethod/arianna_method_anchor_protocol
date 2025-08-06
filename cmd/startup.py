@@ -3,7 +3,7 @@
 import subprocess
 from pathlib import Path
 
-ASSISTANT = Path(__file__).resolve().parents[1] / "assistant.py"
+ASSISTANT = Path(__file__).resolve().parent / "assistant.py"
 
 
 def main() -> None:
