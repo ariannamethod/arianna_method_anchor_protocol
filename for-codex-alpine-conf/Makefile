@@ -1,43 +1,49 @@
-VERSION		:= 3.20.0
+VERSION         := 3.20.0
 
-sysconfdir	?= /etc/lbu
+sysconfdir      ?= /etc/lbu
 
-PREFIX		?=
+PREFIX          ?=
 
-LIB_FILES	:= libalpine.sh dasd-functions.sh
-SBIN_FILES	:= copy-modloop\
-		lbu\
-		setup-acf\
-		setup-alpine\
-		setup-apkcache\
-		setup-apkrepos\
-		setup-bootable\
-		setup-desktop\
-		setup-devd\
-		setup-disk\
-		setup-dns\
-		setup-hostname\
-		setup-interfaces\
-		setup-keymap\
-		setup-lbu\
-		setup-mta\
-		setup-ntp\
-		setup-proxy\
-		setup-sshd\
-		setup-timezone\
-		setup-user\
-		setup-wayland-base\
-		setup-xen-dom0\
-		setup-xorg-base\
-		update-conf\
-		update-kernel
+LIB_FILES       := libalpine.sh dasd-functions.sh
 
-BIN_FILES	:= uniso
+# Core scripts required for a minimal boot environment.
+CORE_SBIN_FILES := copy-modloop\
+                lbu\
+                setup-alpine\
+                setup-apkcache\
+                setup-apkrepos\
+                setup-bootable\
+                setup-disk\
+                setup-hostname\
+                setup-interfaces\
+                setup-keymap\
+                setup-lbu\
+                setup-timezone\
+                setup-user\
+                update-conf\
+                update-kernel
 
-SCRIPTS		:= $(LIB_FILES) $(SBIN_FILES)
+# Additional utilities not required for minimal boot. Maintainers may
+# reintroduce them by appending OPTIONAL_SBIN_FILES to SBIN_FILES.
+OPTIONAL_SBIN_FILES := setup-acf\
+                setup-desktop\
+                setup-devd\
+                setup-dns\
+                setup-mta\
+                setup-ntp\
+                setup-proxy\
+                setup-sshd\
+                setup-wayland-base\
+                setup-xen-dom0\
+                setup-xorg-base
 
-ETC_LBU_FILES	:= lbu.conf
+SBIN_FILES      := $(CORE_SBIN_FILES)
 
+BIN_FILES       := uniso
+
+SCRIPTS         := $(LIB_FILES) $(SBIN_FILES)
+
+ETC_LBU_FILES   := lbu.conf
 GIT_REV		:= $(shell test -d .git && git describe || echo exported)
 ifneq ($(GIT_REV), exported)
 FULL_VERSION	:= $(patsubst $(PACKAGE)-%,%,$(GIT_REV))
