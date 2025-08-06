@@ -109,6 +109,13 @@ def test_history_no_file(tmp_path, monkeypatch):
     assert letsgo.history() == "no history"
 
 
+def test_show_history(tmp_path, monkeypatch):
+    hist = tmp_path / "history"
+    hist.write_text("foo\nbar\n")
+    monkeypatch.setattr(letsgo, "HISTORY_PATH", hist)
+    assert letsgo.show_history().splitlines() == ["foo", "bar"]
+
+
 def test_log_cleanup(tmp_path, monkeypatch):
     log_dir = tmp_path / "log"
     log_dir.mkdir()
@@ -156,3 +163,5 @@ def test_help_lists_command_descriptions():
     output, _ = asyncio.run(letsgo.handle_help("/help"))
     assert "/clear" in output
     assert "clear the terminal screen" in output
+    assert "/history" in output
+    assert "show command history" in output
