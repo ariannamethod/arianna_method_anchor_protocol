@@ -68,13 +68,17 @@ if [ ! -f acroot/.unpacked ]; then
   touch acroot/.unpacked
 fi
 
-# //: install runtime packages
+# //: build and stage patched apk-tools
+APK_BIN="$("$SCRIPT_DIR/build_apk_tools.sh")"
+install -Dm755 "$APK_BIN" acroot/usr/bin/apk
+
+# //: install runtime packages using the patched apk
 PKGS="bash curl nano nodejs npm"
 if [ "$WITH_PY" -eq 1 ]; then
   PKGS="$PKGS python3 py3-pip py3-virtualenv"
 fi
 # shellcheck disable=SC2086
-apk --root acroot --repositories-file /etc/apk/repositories add --no-cache $PKGS
+"$APK_BIN" --root acroot --repositories-file /etc/apk/repositories add --no-cache $PKGS
 
 # //: include assistant, startup hook, motd and log dir
 install -Dm755 "$ROOT_DIR/assistant.py" acroot/usr/bin/assistant
