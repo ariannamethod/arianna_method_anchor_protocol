@@ -6,11 +6,34 @@ from typing import Dict
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+from telegram import (
+    Update,
+    BotCommand,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
+from telegram.ext import (
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
+from letsgo import CORE_COMMANDS
 import uvicorn
 
 PROMPT = ">>"
+
+MAIN_COMMANDS = ["/status", "/time", "/help"]
+INLINE_KEYBOARD = InlineKeyboardMarkup(
+    [
+        [
+            InlineKeyboardButton("status", callback_data="/status"),
+            InlineKeyboardButton("time", callback_data="/time"),
+            InlineKeyboardButton("help", callback_data="/help"),
+        ]
+    ]
+)
 
 
 class LetsGoProcess:
@@ -113,7 +136,20 @@ async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not cmd:
         return
     output = await letsgo.run(cmd)
-    await update.message.reply_text(output)
+    if cmd in MAIN_COMMANDS:
+        await update.message.reply_text(output, reply_markup=INLINE_KEYBOARD)
+    else:
+        await update.message.reply_text(output)
+
+
+async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query:
+        return
+    cmd = query.data or ""
+    output = await letsgo.run(cmd)
+    await query.answer()
+    await query.message.reply_text(output, reply_markup=INLINE_KEYBOARD)
 
 
 async def start_bot() -> None:
@@ -121,9 +157,11 @@ async def start_bot() -> None:
     if not token:
         return
     application = ApplicationBuilder().token(token).build()
-    application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_telegram)
-    )
+    commands = [BotCommand(cmd[1:], desc) for cmd, (_, desc) in CORE_COMMANDS.items()]
+    await application.bot.set_my_commands(commands)
+
+    application.add_handler(MessageHandler(filters.TEXT, handle_telegram))
+    application.add_handler(CallbackQueryHandler(handle_callback))
     await application.run_polling()
 
 
