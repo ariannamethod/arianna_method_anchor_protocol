@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# //: собирает bzImage + initramfs → bootable image
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+KERNEL_VERSION="${KERNEL_VERSION:-6.6.4}"
+ACROOT_VERSION="${ACROOT_VERSION:-3.19.0}"
+
+WITH_PY=0
+CLEAN=0
+TEST_QEMU=0
+for arg in "$@"; do
+  case "$arg" in
+    --with-python) WITH_PY=1 ;;
+    --clean) CLEAN=1 ;;
+    --test-qemu) TEST_QEMU=1 ;;
+  esac
+done
+
+if [ "$CLEAN" -eq 1 ]; then
+  rm -rf "$SCRIPT_DIR/kernel" "$SCRIPT_DIR/acroot" "$SCRIPT_DIR/arianna.initramfs.gz" "$SCRIPT_DIR/arianna-core.img"
+fi
+
+# //: fetch kernel sources
+mkdir -p "$SCRIPT_DIR/kernel"
+cd "$SCRIPT_DIR/kernel"
+if [ ! -f "linux-${KERNEL_VERSION}.tar.xz" ]; then
+  curl -LO "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz"  # //: upstream kernel archive
+fi
+
+if [ ! -d "linux-${KERNEL_VERSION}" ]; then
+  tar xf "linux-${KERNEL_VERSION}.tar.xz"  # //: unpack kernel tree
+fi
+
+cd "linux-${KERNEL_VERSION}"
+
+# //: kernel configuration
+if [ ! -f .config ]; then
+  cp "$SCRIPT_DIR/arianna_kernel.config" .config  # //: baseline config with ext4, overlayfs, cgroups, namespaces
+fi
+
+# //: interactive customization when needed
+# make menuconfig  # //: enable extra modules as project evolves
+
+# //: build kernel and modules
+make -j"$(nproc)" bzImage modules
+make modules_install INSTALL_MOD_PATH="$SCRIPT_DIR/acroot"  # //: install to initramfs staging
+
+# //: assemble initramfs with arianna_core_root built from the Alpine lineage
+cd "$SCRIPT_DIR"
+TARBALL="arianna_core_root-${ACROOT_VERSION}-x86_64.tar.gz"
+if [ ! -f "$TARBALL" ]; then
+  curl -LO "https://dl-cdn.alpinelinux.org/alpine/v${ACROOT_VERSION%.*}/releases/x86_64/alpine-minirootfs-${ACROOT_VERSION}-x86_64.tar.gz"
+  mv "alpine-minirootfs-${ACROOT_VERSION}-x86_64.tar.gz" "$TARBALL"
+fi
+mkdir -p acroot
+if [ ! -f acroot/.unpacked ]; then
+  tar xf "$TARBALL" -C acroot
+  touch acroot/.unpacked
+fi
+
+# //: install runtime packages
+PKGS="bash curl nano nodejs npm"
+if [ "$WITH_PY" -eq 1 ]; then
+  PKGS="$PKGS python3 py3-pip py3-virtualenv"
+fi
+# shellcheck disable=SC2086
+apk --root acroot --repositories-file /etc/apk/repositories add --no-cache $PKGS
+
+# //: include assistant, startup hook, motd and log dir
+install -Dm755 "$ROOT_DIR/assistant.py" acroot/usr/bin/assistant
+install -Dm755 "$ROOT_DIR/cmd/startup.py" acroot/usr/bin/startup
+ln -sf /usr/bin/startup acroot/init
+mkdir -p acroot/arianna_core/log
+echo "Hey there, welcome to Arianna Method Linux Terminal" > acroot/etc/motd
+
+# //: create initramfs image
+cd acroot
+find . | cpio -o -H newc | gzip -9 > "$SCRIPT_DIR/arianna.initramfs.gz"
+cd "$SCRIPT_DIR"
+
+# //: build final disk image
+cat "kernel/linux-${KERNEL_VERSION}/arch/x86/boot/bzImage" "arianna.initramfs.gz" > "$SCRIPT_DIR/arianna-core.img"  # //: flat image for qemu
+
+if [ "$TEST_QEMU" -eq 1 ]; then
+  qemu-system-x86_64 \
+    -kernel "kernel/linux-${KERNEL_VERSION}/arch/x86/boot/bzImage" \
+    -initrd "arianna.initramfs.gz" \
+    -append "console=ttyS0" \
+    -nographic \
+    -no-reboot \
+    -serial mon:stdio \
+    -m 512M
+fi
+
+# //: verify language runtimes inside the VM (executed via expect or manual)
+# python3 --version  # //: confirm Python 3.10+
+# node --version     # //: confirm Node.js 18+
