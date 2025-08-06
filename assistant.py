@@ -8,7 +8,7 @@ import socket
 from datetime import datetime
 from pathlib import Path
 from collections import deque
-from typing import Deque
+from typing import Deque, Iterable
 
 # //: each session logs to its own file in the repository root
 ROOT_DIR = Path(__file__).resolve().parent
@@ -47,18 +47,23 @@ def status() -> str:
     return f"CPU cores: {cpu}\nUptime: {uptime}s\nIP: {ip}"
 
 
-def summarize(term: str | None = None, limit: int = 5) -> str:
-    """Naive log search returning last ``limit`` matches."""
-    if not LOG_DIR.exists():
-        return "no logs"
-    lines: Deque[str] = deque(maxlen=limit)
+def _iter_log_lines() -> Iterable[str]:
+    """Yield log lines from all log files in order."""
     for file in sorted(LOG_DIR.glob("*.log")):
         with file.open() as fh:
             for line in fh:
-                line = line.rstrip("\n")
-                if term is None or term in line:
-                    lines.append(line)
-    return "\n".join(lines) if lines else "no matches"
+                yield line.rstrip("\n")
+
+
+def summarize(term: str | None = None, limit: int = 5) -> str:
+    """Return the last ``limit`` log lines matching ``term``."""
+    if not LOG_DIR.exists():
+        return "no logs"
+    matches: Deque[str] = deque(maxlen=limit)
+    for line in _iter_log_lines():
+        if term is None or term in line:
+            matches.append(line)
+    return "\n".join(matches) if matches else "no matches"
 
 
 def main() -> None:
