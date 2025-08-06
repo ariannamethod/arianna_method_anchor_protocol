@@ -7,7 +7,8 @@ import os
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from collections import deque
+from typing import Deque
 
 # //: each session logs to its own file
 LOG_DIR = Path(__file__).resolve().parent / "log"
@@ -32,16 +33,18 @@ def status() -> str:
     return f"CPU cores: {cpu}\nUptime: {uptime}s\nIP: {ip}"
 
 
-def summarize(term: str | None = None) -> str:
-    """Naive log search returning last matches."""
+def summarize(term: str | None = None, limit: int = 5) -> str:
+    """Naive log search returning last ``limit`` matches."""
     if not LOG_DIR.exists():
         return "no logs"
-    lines: List[str] = []
+    lines: Deque[str] = deque(maxlen=limit)
     for file in sorted(LOG_DIR.glob("*.log")):
-        for line in file.read_text().splitlines():
-            if term is None or term in line:
-                lines.append(line)
-    return "\n".join(lines[-5:]) if lines else "no matches"
+        with file.open() as fh:
+            for line in fh:
+                line = line.rstrip("\n")
+                if term is None or term in line:
+                    lines.append(line)
+    return "\n".join(lines) if lines else "no matches"
 
 
 def main() -> None:
@@ -58,9 +61,13 @@ def main() -> None:
         if user.strip() == "/status":
             reply = status()
         elif user.startswith("/summarize"):
-            parts = user.split(maxsplit=1)
-            term = parts[1] if len(parts) > 1 else None
-            reply = summarize(term)
+            parts = user.split()[1:]
+            limit = 5
+            if parts and parts[-1].isdigit():
+                limit = int(parts[-1])
+                parts = parts[:-1]
+            term = " ".join(parts) if parts else None
+            reply = summarize(term, limit)
         else:
             reply = f"echo: {user}"
         print(reply)
