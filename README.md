@@ -66,6 +66,21 @@ Then assemble the kernel and userland:
 
 The second script fetches kernel sources, stages `arianna_core_root` built from the Alpine lineage, and emits a flat image. The optional flags expand the userland, clean previous artifacts or run a QEMU smoke test.
 
+## Linting
+
+Run static analysis before pushing changes (install `flake8`, `flake8-pyproject`, and `black` if missing):
+
+```
+./run-tests.sh
+```
+
+This script executes `flake8` and `black --check` followed by the test suite. To run the linters directly:
+
+```
+flake8 .
+black --check .
+```
+
 ## Lineage utilities
 
 The `apk-tools` directory carries a patched `apk` built by `build_apk_tools.sh`, enabling package installs without heavy dependencies.
