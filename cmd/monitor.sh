@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Tail assistant logs from the repository root's log directory
+# Tail assistant logs from the system log directory
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-LOG_DIR="$ROOT_DIR/log"
+LOG_DIR="/arianna_core/log"
 
-mkdir -p "$LOG_DIR"
+if [ ! -d "$LOG_DIR" ]; then
+  echo "Log directory $LOG_DIR not found" >&2
+  exit 1
+fi
 # Wait for at least one log file to exist before tailing
 shopt -s nullglob
 log_files=("$LOG_DIR"/*.log)

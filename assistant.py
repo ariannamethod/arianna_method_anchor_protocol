@@ -5,20 +5,29 @@ from __future__ import annotations
 
 import os
 import socket
+import sys
 from datetime import datetime
 from pathlib import Path
 from collections import deque
 from typing import Deque, Iterable
 
-# //: each session logs to its own file in the repository root
-ROOT_DIR = Path(__file__).resolve().parent
-LOG_DIR = ROOT_DIR / "log"
+# //: each session logs to its own file under a fixed directory
+LOG_DIR = Path("/arianna_core/log")
 SESSION_ID = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
 LOG_PATH = LOG_DIR / f"{SESSION_ID}.log"
 
 
+def _ensure_log_dir() -> None:
+    """Verify that the log directory exists and is writable."""
+    if not LOG_DIR.exists():
+        print(f"Log directory {LOG_DIR} does not exist", file=sys.stderr)
+        raise SystemExit(1)
+    if not os.access(LOG_DIR, os.W_OK):
+        print(f"No write permission for {LOG_DIR}", file=sys.stderr)
+        raise SystemExit(1)
+
+
 def log(message: str) -> None:
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
     with LOG_PATH.open("a") as fh:
         fh.write(f"{datetime.utcnow().isoformat()} {message}\n")
 
@@ -67,6 +76,7 @@ def summarize(term: str | None = None, limit: int = 5) -> str:
 
 
 def main() -> None:
+    _ensure_log_dir()
     log("session_start")
     print("Arianna assistant ready. Type 'exit' to quit.")
     while True:
