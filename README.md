@@ -44,10 +44,10 @@ AMLK is lightweight enough to embed within messaging clients like Telegram, allo
 
 ## Environment Variables
 
-The bridge and HTTP server expect the following variables to be set:
+The bridge and HTTP server require several variables to be set before starting `bridge.py`:
 
-- `TELEGRAM_TOKEN` – token used by the Telegram bot
 - `API_TOKEN` – shared secret for API requests and WebSocket connections
+- `TELEGRAM_TOKEN` – token used by the Telegram bot
 - `PORT` – port for the HTTP server (defaults to `8000`)
 
 ---
