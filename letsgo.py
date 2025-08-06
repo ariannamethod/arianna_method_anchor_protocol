@@ -42,20 +42,6 @@ def log(message: str) -> None:
         fh.write(f"{datetime.utcnow().isoformat()} {message}\n")
 
 
-def _setup_readline() -> None:
-    """Configure history and tab completion."""
-    try:
-        readline.read_history_file(str(HISTORY_PATH))
-    except FileNotFoundError:
-        pass
-    readline.parse_and_bind("tab: complete")
-
-    def completer(text: str, state: int) -> str | None:
-        matches = [cmd for cmd in COMMANDS if cmd.startswith(text)]
-        return matches[state] if state < len(matches) else None
-
-    readline.set_completer(completer)
-    atexit.register(readline.write_history_file, str(HISTORY_PATH))
 
 
 def _first_ip() -> str:
@@ -125,7 +111,19 @@ def summarize(term: str | None = None, limit: int = 5) -> str:
 
 def main() -> None:
     _ensure_log_dir()
-    _setup_readline()
+    try:
+        readline.read_history_file(str(HISTORY_PATH))
+    except FileNotFoundError:
+        pass
+    readline.parse_and_bind("tab: complete")
+
+    def completer(text: str, state: int) -> str | None:
+        matches = [cmd for cmd in COMMANDS if cmd.startswith(text)]
+        return matches[state] if state < len(matches) else None
+
+    readline.set_completer(completer)
+    atexit.register(readline.write_history_file, str(HISTORY_PATH))
+
     log("session_start")
     print("LetsGo terminal ready. Type 'exit' to quit.")
     while True:
