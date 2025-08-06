@@ -42,6 +42,16 @@ AMLK is lightweight enough to embed within messaging clients like Telegram, allo
 
 ---
 
+## Environment Variables
+
+The bridge and HTTP server expect the following variables to be set:
+
+- `TELEGRAM_TOKEN` – token used by the Telegram bot
+- `API_TOKEN` – shared secret for API requests and WebSocket connections
+- `PORT` – port for the HTTP server (defaults to `8000`)
+
+---
+
 ## Hardware Requirements
 
 The kernel and userland target generic x86_64 CPUs. GPU drivers and libraries are omitted, so the system runs entirely on CPU hardware.
