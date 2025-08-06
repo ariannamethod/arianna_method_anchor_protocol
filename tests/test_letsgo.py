@@ -2,6 +2,7 @@ import os
 import re
 import sys
 from pathlib import Path
+import asyncio
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -51,7 +52,7 @@ def test_current_time_format():
 
 
 def test_run_command():
-    output = letsgo.run_command("echo hello")
+    output = asyncio.run(letsgo.run_command("echo hello"))
     assert output.strip() == "hello"
 
 
