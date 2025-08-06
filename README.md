@@ -155,16 +155,45 @@ As the project evolves, the terminal is expected to grow into a pluggable orches
 
 ## Architecture
 
-1. **Kernel stratum** – configured through `arianna_kernel.config`, it ensures OverlayFS, ext4, namespaces and cgroups are wired in. Formally the configuration space is a tuple \(K = (k_1, k_2, ..., k_n)\) where each \(k_i\) toggles a capability required for higher layers.
-2. **Module layer** – placeholder today, destined to host `.ko` objects. These are morphisms extending \(K\) with elements from the set \(M\), enabling device drivers and specialised subsystems.
-3. **Boot image** – the concatenation of `bzImage` and `initramfs` forms a sequence \(B = b \cdot r\), a product in the monoid of binary blobs that QEMU interprets deterministically.
-4. **Userland root** – extracted from the Alpine lineage yet renamed to `arianna_core_root`, it is considered the base element \(u_0\) of an overlay lattice where successive changes form \(u_i = u_{i-1} \oplus d_i\).
-5. **Command stratum** – the `cmd` directory acts as a set of generators \(C = \{s, m\}\) where `s` launches the terminal and `m` streams logs; additional generators can be added without altering \(B\).
-6. **Assistant process** – modelled as a function \(A: I \rightarrow O\) mapping user input to output while appending to a log sequence \(L = [(t_0, i_0), (t_0, o_0), ...]\).
-7. **Log space** – each log file defines a time-ordered series, a totally ordered set under the relation "happens-before" derived from timestamps. Summaries operate as projections \(\pi: L \rightarrow L'\).
-8. **Interface adapters** – future Telegram or web modules will be functors transforming external message categories into the internal language of the terminal.
-9. **Resource governance** – cgroups partition CPU and memory; mathematically they form a tree \(T\) whose edges carry weight limits, and processes are leaves consuming fractions of those weights.
-10. **Self-monitoring** – the system aspires to feedback loops where the terminal interprets its own logs, creating a recurrence relation \(x_{n+1} = f(x_n)\) pointing toward reflexive reasoning.
+The kernel forms a deterministic foundation carved from Alpine sources. Every configuration option is scrutinized so the space of parameters \(K = \{k_1, k_2, …, k_n\}\) collapses to a minimal subset that still spans ext4, OverlayFS, and namespace features.
+
+The build pipeline orchestrates source retrieval and configuration as if solving simultaneous equations. Each Make rule enforces constraints for ext4, OverlayFS, and cgroups, and parallel compilation realizes the speedup \(S = T_1/T_n\).
+
+Boot logic assembles `bzImage` and a compressed initramfs into a linear product \(B = b \cdot r\). This concatenation behaves like a monoid multiplication where associativity guarantees reproducible startup sequences across machines.
+
+File persistence relies on ext4 journaling. The journal approximates an integral \(J(t) = \int_0^t \dot{d}(\tau) d\tau\), bounding data loss even when power is cut mid write.
+
+OverlayFS introduces a writable layer \(W\) atop a read-only base \(R\), yielding an effective state \(S = R \cup W\). The union is resolved at lookup time, so modifications scale with O(1) regardless of history depth.
+
+Namespaces partition the universe of processes into disjoint sets \(N_i\). Each process perceives only its assigned set, echoing Leibniz's monads in computational form.
+
+Cgroups enforce resource bounds through a tree \(T\) whose edges carry weights \(w_e\). The sum of leaf allocations \(\sum w_e\) never exceeds the root capacity, keeping runaway tasks in check.
+
+Userland emerges from `arianna_core_root`, a trimmed Alpine derivative. Think of it as the base vector \(u_0\) in a high-dimensional space where each package installation performs a vector addition \(u_{n+1} = u_n + p\).
+
+The terminal `letsgo.py` now hosts all core commands directly, abandoning plugins for a monolith that reduces indirection. Its interface targets the human eye with concise prompts yet invites scripting through deterministic outputs.
+
+Interaction unfolds through an asynchronous loop \(L\), mapping each input \(i_t\) to a response \(o_t\). The mapping is a pure function except for deliberate side effects like logging.
+
+Logs accumulate as a sequence \(L = [(t_0, m_0), (t_1, m_1), …]\). This ordered set enables reconstruction of conversations and supports algorithms that treat time as a first-class axis.
+
+Summarization and regex search act as projection operators \(\pi: L \rightarrow L'\), distilling salient points without destroying provenance. History retrieval behaves like a bounded inverse, recovering the last \(n\) elements of \(L\).
+
+Color output toggles between states \(C_{on}\) and \(C_{off}\). The flag is stored in memory, and switching corresponds to a simple Boolean complement \(C' = \neg C\).
+
+The `/status` command samples CPU count, uptime, and network address. It forms a vector \(s = (c, u, a)\) that approximates the machine's physical posture in real time.
+
+The freshly integrated `/ping` command provides a liveness probe. Conceptually it models an impulse response where \(f(t) = \delta(t)\) and the echo `pong` verifies that the terminal loop is intact.
+
+Command execution leverages `asyncio.create_subprocess_shell`, achieving concurrency. The speedup follows Amdahl's law \(S = \frac{T_1}{T_n}\), reminding users that parallelism has theoretical limits.
+
+Minimalism is the guiding philosophy. By shedding superfluous layers the system mirrors Occam's razor, asserting that the simplest explanation—or kernel—should be preferred until complexity becomes unavoidable.
+
+Security arises from this austerity. With fewer packages, the attack surface approximates a measure-zero subset in the wider space of Linux distributions.
+
+Despite its monolithic posture, the design remains extensible. Future bridges to chat platforms or web consoles can attach as morphisms without mutating the core algebra.
+
+Ultimately the architecture invites self-reflection. When the terminal inspects its own logs, it computes a recursion \(x_{n+1} = f(x_n)\), hinting at systems that learn and adapt through iterative self-observation.
 
 
 ## License
