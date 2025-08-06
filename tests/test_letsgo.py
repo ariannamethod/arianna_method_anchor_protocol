@@ -184,3 +184,27 @@ def test_handle_py_timeout(monkeypatch):
         assert colored.startswith("\033[31m")
     else:
         assert colored is not None
+
+
+def test_handle_upload_copies_file(tmp_path, monkeypatch):
+    upload_dir = tmp_path / "upload"
+    upload_dir.mkdir()
+    src = upload_dir / "data.txt"
+    src.write_text("hello")
+    monkeypatch.setattr(letsgo, "UPLOAD_DIR", upload_dir)
+    monkeypatch.chdir(tmp_path)
+    output, _ = asyncio.run(letsgo.handle_upload("/upload data.txt"))
+    assert (tmp_path / "data.txt").read_text() == "hello"
+    assert "copied" in output
+
+
+def test_handle_upload_missing_file(tmp_path, monkeypatch):
+    upload_dir = tmp_path / "upload"
+    upload_dir.mkdir()
+    monkeypatch.setattr(letsgo, "UPLOAD_DIR", upload_dir)
+    output, colored = asyncio.run(letsgo.handle_upload("/upload nope.txt"))
+    assert "not found" in output
+    if letsgo.USE_COLOR:
+        assert colored.startswith("\033[31m")
+    else:
+        assert colored is not None

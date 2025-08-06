@@ -7,6 +7,8 @@ from fastapi import (
     Depends,
     FastAPI,
     HTTPException,
+    UploadFile,
+    File,
     WebSocket,
     WebSocketDisconnect,
 )
@@ -117,6 +119,7 @@ security = HTTPBasic()
 API_TOKEN = os.getenv("API_TOKEN", "change-me")
 RATE_LIMIT = float(os.getenv("RATE_LIMIT_SEC", "1"))
 _last_call: Dict[str, float] = {}
+UPLOAD_DIR = "/arianna_core/upload"
 
 
 def _check_rate(client: str) -> None:
@@ -160,6 +163,40 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     finally:
         await proc.stop()
         sessions.pop(sid, None)
+
+
+@app.post("/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    credentials: HTTPBasicCredentials = Depends(security),
+) -> Dict[str, str]:
+    if credentials.password != API_TOKEN:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    _check_rate(credentials.username)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    dest = os.path.join(UPLOAD_DIR, file.filename)
+    with open(dest, "wb") as fh:
+        fh.write(await file.read())
+    return {"filename": file.filename}
+
+
+@app.websocket("/upload")
+async def upload_ws(websocket: WebSocket) -> None:
+    token = websocket.query_params.get("token")
+    name = websocket.query_params.get("name")
+    if token != API_TOKEN or not name:
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    path = os.path.join(UPLOAD_DIR, name)
+    try:
+        with open(path, "wb") as fh:
+            while True:
+                data = await websocket.receive_bytes()
+                fh.write(data)
+    except WebSocketDisconnect:
+        pass
 
 
 async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
