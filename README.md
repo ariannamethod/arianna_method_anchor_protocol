@@ -18,7 +18,7 @@ Node.js 18+ complements Python, providing asynchronous I/O modeled as a non-bloc
 
 Bash, curl, and nano compose the minimal interactive toolkit; each utility occupies a vertex in a dependency graph ensuring accessibility without bloat.
 
-The CLI assistant shipped in cmd/assistant.py demonstrates logging and echo capabilities, acting as a proof of concept for higher-order reasoning modules.
+The CLI terminal shipped in cmd/letsgo.py demonstrates logging and echo capabilities, acting as a proof of concept for higher-order reasoning modules.
 
 Logs are stored in /arianna_core/log and each entry is timestamped, forming a sequence ((t_i, m_i)) representing chronological states of dialogue.
 
@@ -110,29 +110,31 @@ When `--test-qemu` is supplied to the build script, the above sequence is execut
 
 ## Future Interfaces
 
-A Telegram bridge is planned through a small bot that proxies chat messages to `assistant.py`. The bot will authenticate via API token and map each chat to a session log, enabling asynchronous reasoning threads.
+A Telegram bridge is planned through a small bot that proxies chat messages to `letsgo.py`. The bot will authenticate via API token and map each chat to a session log, enabling asynchronous reasoning threads.
 
-A web UI may follow, exposing the same assistant over WebSockets. The intent is to treat HTTP as a transport layer while preserving the conversational core. SSL termination and rate limiting will rely on existing libraries and can run in user space atop the initramfs.
+A web UI may follow, exposing the same terminal over WebSockets. The intent is to treat HTTP as a transport layer while preserving the conversational core. SSL termination and rate limiting will rely on existing libraries and can run in user space atop the initramfs.
 
-Other interfaces—serial TTYs, named pipes or custom RPC schemes—remain feasible because the assistant operates in standard I/O space, reducing coupling to any specific frontend.
+Other interfaces—serial TTYs, named pipes or custom RPC schemes—remain feasible because the terminal operates in standard I/O space, reducing coupling to any specific frontend.
 
-## assistant.py
+## letsgo.py
 
-The assistant is invoked after login and serves as the primary shell for Arianna Core. Each session creates a fresh log in `/arianna_core/log/`, stamped with UTC time, ensuring chronological reconstruction of interactions.
+The terminal is invoked after login and serves as the primary shell for Arianna Core. Each session creates a fresh log in `/arianna_core/log/`, stamped with UTC time, ensuring chronological reconstruction of interactions.
 
 A `/status` command reports CPU core count, raw uptime seconds read from `/proc/uptime`, and the current host IP. This offers an at-a-glance check that the minimal environment is healthy.
 
 The `/summarize` command performs a naive search across all session logs and prints the last five matches, demonstrating how higher-order reasoning can be layered atop simple text filters.
 
+For quick information retrieval `/time` prints the current UTC timestamp, while `/run <cmd>` executes a shell command and returns its output. A `/help` command lists the available verbs.
+
 By default any unrecognised input is echoed back, but the structure is prepared for more advanced NLP pipelines. Hooks can intercept the text and dispatch it to remote models, feeding results back through the same interface.
 
-Logging uses the `//:` motif in comments and writes both user prompts and assistant responses. Each line is timestamped with ISO-8601 precision, building a dataset suitable for replay or training.
+Logging uses the `//:` motif in comments and writes both user prompts and letsgo responses. Each line is timestamped with ISO-8601 precision, building a dataset suitable for replay or training.
 
-Because the assistant resides in the repository root, the `cmd` directory only carries thin launchers. `startup.py` triggers the assistant on boot, while `monitor.sh` tails log files for real-time inspection.
+Because `letsgo.py` resides in the repository root, the `cmd` directory only carries thin launchers. `startup.py` triggers the terminal on boot, while `monitor.sh` tails log files for real-time inspection.
 
 The design keeps dependencies minimal. The script relies only on the Python standard library and can run inside the initramfs without additional packages unless `--with-python` is chosen.
 
-As the project evolves, the assistant is expected to grow into a pluggable orchestrator capable of spawning subprocesses, managing asynchronous tasks and negotiating resources with the kernel via cgroups.
+As the project evolves, the terminal is expected to grow into a pluggable orchestrator capable of spawning subprocesses, managing asynchronous tasks and negotiating resources with the kernel via cgroups.
 
 ## Architecture
 
@@ -140,12 +142,12 @@ As the project evolves, the assistant is expected to grow into a pluggable orche
 2. **Module layer** – placeholder today, destined to host `.ko` objects. These are morphisms extending \(K\) with elements from the set \(M\), enabling device drivers and specialised subsystems.
 3. **Boot image** – the concatenation of `bzImage` and `initramfs` forms a sequence \(B = b \cdot r\), a product in the monoid of binary blobs that QEMU interprets deterministically.
 4. **Userland root** – extracted from the Alpine lineage yet renamed to `arianna_core_root`, it is considered the base element \(u_0\) of an overlay lattice where successive changes form \(u_i = u_{i-1} \oplus d_i\).
-5. **Command stratum** – the `cmd` directory acts as a set of generators \(C = \{s, m\}\) where `s` launches the assistant and `m` streams logs; additional generators can be added without altering \(B\).
+5. **Command stratum** – the `cmd` directory acts as a set of generators \(C = \{s, m\}\) where `s` launches the terminal and `m` streams logs; additional generators can be added without altering \(B\).
 6. **Assistant process** – modelled as a function \(A: I \rightarrow O\) mapping user input to output while appending to a log sequence \(L = [(t_0, i_0), (t_0, o_0), ...]\).
 7. **Log space** – each log file defines a time-ordered series, a totally ordered set under the relation "happens-before" derived from timestamps. Summaries operate as projections \(\pi: L \rightarrow L'\).
-8. **Interface adapters** – future Telegram or web modules will be functors transforming external message categories into the internal language of the assistant.
+8. **Interface adapters** – future Telegram or web modules will be functors transforming external message categories into the internal language of the terminal.
 9. **Resource governance** – cgroups partition CPU and memory; mathematically they form a tree \(T\) whose edges carry weight limits, and processes are leaves consuming fractions of those weights.
-10. **Self-monitoring** – the system aspires to feedback loops where the assistant interprets its own logs, creating a recurrence relation \(x_{n+1} = f(x_n)\) pointing toward reflexive reasoning.
+10. **Self-monitoring** – the system aspires to feedback loops where the terminal interprets its own logs, creating a recurrence relation \(x_{n+1} = f(x_n)\) pointing toward reflexive reasoning.
 
 
 ## License
