@@ -147,6 +147,11 @@ def current_time() -> str:
     return datetime.utcnow().isoformat()
 
 
+async def async_input(prompt: str) -> str:
+    """Async wrapper around ``input``."""
+    return await asyncio.to_thread(input, prompt)
+
+
 async def run_command(
     command: str, on_line: Callable[[str], None] | None = None
 ) -> str:
@@ -157,6 +162,8 @@ async def run_command(
     colored red.
     """
     try:
+        if on_line:
+            on_line("...running")
         proc = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
@@ -392,9 +399,7 @@ async def main() -> None:
     print("LetsGo terminal ready. Type 'exit' to quit.")
     while True:
         try:
-            user = await asyncio.to_thread(
-                input, color(SETTINGS.prompt, SETTINGS.cyan)
-            )
+            user = await async_input(color(SETTINGS.prompt, SETTINGS.cyan))
         except EOFError:
             break
         if user.strip().lower() in {"exit", "quit"}:
