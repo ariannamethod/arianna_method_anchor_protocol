@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Interactive console assistant for Arianna Core."""
+"""Interactive console terminal for Arianna Core."""
 
 from __future__ import annotations
 
 import os
 import socket
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -18,10 +19,8 @@ LOG_PATH = LOG_DIR / f"{SESSION_ID}.log"
 
 
 def _ensure_log_dir() -> None:
-    """Verify that the log directory exists and is writable."""
-    if not LOG_DIR.exists():
-        print(f"Log directory {LOG_DIR} does not exist", file=sys.stderr)
-        raise SystemExit(1)
+    """Ensure that the log directory exists and is writable."""
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
     if not os.access(LOG_DIR, os.W_OK):
         print(f"No write permission for {LOG_DIR}", file=sys.stderr)
         raise SystemExit(1)
@@ -56,6 +55,28 @@ def status() -> str:
     return f"CPU cores: {cpu}\nUptime: {uptime}s\nIP: {ip}"
 
 
+def current_time() -> str:
+    """Return the current UTC time."""
+    return datetime.utcnow().isoformat()
+
+
+def run_command(command: str) -> str:
+    """Execute a shell command and return its output."""
+    try:
+        result = subprocess.run(
+            command,
+            shell=True,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=10,
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as exc:
+        return exc.stdout.strip() if exc.stdout else str(exc)
+
+
 def _iter_log_lines() -> Iterable[str]:
     """Yield log lines from all log files in order."""
     for file in sorted(LOG_DIR.glob("*.log")):
@@ -78,7 +99,7 @@ def summarize(term: str | None = None, limit: int = 5) -> str:
 def main() -> None:
     _ensure_log_dir()
     log("session_start")
-    print("Arianna assistant ready. Type 'exit' to quit.")
+    print("LetsGo terminal ready. Type 'exit' to quit.")
     while True:
         try:
             user = input(">> ")
@@ -89,6 +110,12 @@ def main() -> None:
         log(f"user:{user}")
         if user.strip() == "/status":
             reply = status()
+        elif user.strip() == "/time":
+            reply = current_time()
+        elif user.startswith("/run "):
+            reply = run_command(user.partition(" ")[2])
+        elif user.strip() == "/help":
+            reply = "Commands: /status, /time, /run <cmd>, /summarize [term [limit]]"
         elif user.startswith("/summarize"):
             parts = user.split()[1:]
             limit = 5
@@ -100,7 +127,7 @@ def main() -> None:
         else:
             reply = f"echo: {user}"
         print(reply)
-        log(f"assistant:{reply}")
+        log(f"letsgo:{reply}")
     log("session_end")
 
 

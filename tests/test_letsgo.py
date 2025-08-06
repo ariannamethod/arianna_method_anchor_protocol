@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import assistant  # noqa: E402
+import letsgo  # noqa: E402
 
 
 # Helper to create log files
@@ -19,8 +19,8 @@ def _write_log(log_dir: Path, name: str, lines: list[str]):
 
 
 def test_status_fields(monkeypatch):
-    monkeypatch.setattr(assistant, "_first_ip", lambda: "1.2.3.4")
-    result = assistant.status()
+    monkeypatch.setattr(letsgo, "_first_ip", lambda: "1.2.3.4")
+    result = letsgo.status()
     lines = result.splitlines()
     assert len(lines) == 3
     expected_cpu = os.cpu_count()
@@ -31,8 +31,8 @@ def test_status_fields(monkeypatch):
 
 def test_summarize_no_logs(tmp_path, monkeypatch):
     log_dir = tmp_path / "log"
-    monkeypatch.setattr(assistant, "LOG_DIR", log_dir)
-    result = assistant.summarize("anything")
+    monkeypatch.setattr(letsgo, "LOG_DIR", log_dir)
+    result = letsgo.summarize("anything")
     assert result == "no logs"
 
 
@@ -40,6 +40,16 @@ def test_summarize_term_filter(tmp_path, monkeypatch):
     log_dir = tmp_path / "log"
     log_dir.mkdir()
     _write_log(log_dir, "sample", ["foo", "bar", "foo again", "baz"])
-    monkeypatch.setattr(assistant, "LOG_DIR", log_dir)
-    result = assistant.summarize("foo")
+    monkeypatch.setattr(letsgo, "LOG_DIR", log_dir)
+    result = letsgo.summarize("foo")
     assert result == "foo\nfoo again"
+
+
+def test_current_time_format():
+    stamp = letsgo.current_time()
+    assert re.match(r"^\d{4}-\d{2}-\d{2}T", stamp)
+
+
+def test_run_command():
+    output = letsgo.run_command("echo hello")
+    assert output.strip() == "hello"

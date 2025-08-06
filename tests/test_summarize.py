@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import assistant  # noqa: E402
+import letsgo  # noqa: E402
 
 
 def _write_log(log_dir, name, lines):
@@ -20,7 +20,7 @@ def test_summarize_large_log(tmp_path, monkeypatch):
     # create large log file with many matching lines
     lines = [f"{i} match" for i in range(10000)]
     _write_log(log_dir, "big", lines)
-    monkeypatch.setattr(assistant, "LOG_DIR", log_dir)
-    result = assistant.summarize("match")
+    monkeypatch.setattr(letsgo, "LOG_DIR", log_dir)
+    result = letsgo.summarize("match")
     expected = "\n".join(lines[-5:])
     assert result == expected
