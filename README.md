@@ -1,6 +1,6 @@
 # Arianna Method Linux Kernel
 
-**Arianna Method Linux Kernel (AMLK)** is a deliberately minimal operating nucleus engineered from Alpine sources to provide a deterministic base for AI workloads.
+**Arianna Method Linux Kernel (AMLK)** is a deliberately compact operating nucleus engineered from Alpine sources to provide a deterministic base for AI workloads.
 
 The kernel is configured to load with a small initramfs derived from Alpine's minirootfs, reducing boot complexity to (O(1)) relative to module count.
 
