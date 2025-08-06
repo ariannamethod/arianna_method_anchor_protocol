@@ -15,6 +15,8 @@ The project ships a single entry script, `./build/build_ariannacore.sh`, which a
 
 Passing `--with-python` expands the userland with the CPython runtime and tooling. The `--clean` flag wipes previous artifacts, and `--test-qemu` executes a minimal boot in QEMU to validate that the emission succeeded.
 
+During the build, a curated subset of Alpine's setup utilities is installed (`setup-alpine`, `setup-hostname`, `setup-interfaces`, `setup-keymap`, `setup-timezone`, `setup-user`, `setup-apkrepos`, `setup-dns`). These scripts provide basic system configuration while keeping the kernel CPU-only and the image lightweight.
+
 ## Checksum verification
 
 For reproducibility the build script verifies downloads against known SHA256 sums using:

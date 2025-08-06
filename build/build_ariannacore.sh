@@ -66,6 +66,18 @@ if [ ! -f acroot/.unpacked ]; then
   touch acroot/.unpacked
 fi
 
+# //: install minimal alpine configuration scripts
+CONF_SRC="$ROOT_DIR/for-codex-alpine-conf"
+SEDS=(-e "s:@PREFIX@:/usr:g" -e "s:@VERSION@:3.20.0:g" -e "s:@sysconfdir@:/etc/lbu:g")
+install -d acroot/usr/lib acroot/usr/sbin
+sed "${SEDS[@]}" "$CONF_SRC/libalpine.sh.in" > acroot/usr/lib/libalpine.sh
+chmod 644 acroot/usr/lib/libalpine.sh
+CORE_SCRIPTS=(setup-alpine setup-apkrepos setup-hostname setup-interfaces setup-keymap setup-timezone setup-user setup-dns)
+for s in "${CORE_SCRIPTS[@]}"; do
+  sed "${SEDS[@]}" "$CONF_SRC/$s.in" > "acroot/usr/sbin/$s"
+  chmod 755 "acroot/usr/sbin/$s"
+done
+
 # //: build and stage patched apk-tools
 APK_BIN="$("$SCRIPT_DIR/build_apk_tools.sh")"
 install -Dm755 "$APK_BIN" acroot/usr/bin/apk
