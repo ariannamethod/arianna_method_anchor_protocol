@@ -56,6 +56,39 @@ def test_run_command():
     assert output.strip() == "hello"
 
 
+def test_run_command_mock(monkeypatch):
+    """Ensure run_command handles async subprocesses and emits indicator."""
+
+    class DummyProcess:
+        def __init__(self):
+            self.stdout = asyncio.StreamReader()
+            self.stdout.feed_data(b"done\n")
+            self.stdout.feed_eof()
+
+        async def wait(self):
+            return 0
+
+        def kill(self):
+            pass
+
+        async def communicate(self):
+            return b"", b""
+
+    async def fake_create_subprocess_shell(cmd, stdout=None, stderr=None):
+        return DummyProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_shell", fake_create_subprocess_shell)
+
+    lines: list[str] = []
+
+    def _cb(line: str) -> None:
+        lines.append(line)
+
+    output = asyncio.run(letsgo.run_command("whatever", _cb))
+    assert output == "done"
+    assert lines == ["...running", "done"]
+
+
 def test_clear_screen_returns_sequence():
     assert letsgo.clear_screen() == "\033c"
 
