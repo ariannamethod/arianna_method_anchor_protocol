@@ -1,7 +1,11 @@
 __pycache__/
 *.pyc
-arianna_core/kernel/linux-*
-arianna_core/alpine-minirootfs-*
-arianna_core/rootfs/
-arianna_core/arianna.initramfs.gz
-arianna_core/arianna-core.img
+build/kernel/linux-*
+build/alpine-minirootfs-*
+build/rootfs/
+build/arianna.initramfs.gz
+build/arianna-core.img
+log/*.log
+build/kernel/
+build/acroot/
+build/arianna_core_root-*.tar.gz
