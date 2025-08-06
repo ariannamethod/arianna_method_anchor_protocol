@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import os
-import subprocess
+import socket
 from datetime import datetime
 from pathlib import Path
 from typing import List
@@ -21,14 +21,27 @@ def log(message: str) -> None:
         fh.write(f"{datetime.utcnow().isoformat()} {message}\n")
 
 
+def _first_ip() -> str:
+    """Return the first non-loopback IP address or 'unknown'."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except OSError:
+        try:
+            for addr in socket.gethostbyname_ex(socket.gethostname())[2]:
+                if not addr.startswith("127."):
+                    return addr
+        except socket.gaierror:
+            pass
+    return "unknown"
+
+
 def status() -> str:
     """Return basic system metrics."""
     cpu = os.cpu_count()
     uptime = Path("/proc/uptime").read_text().split()[0]
-    try:
-        ip = subprocess.check_output(["hostname", "-I"]).decode().strip()
-    except subprocess.CalledProcessError:
-        ip = "unknown"
+    ip = _first_ip()
     return f"CPU cores: {cpu}\nUptime: {uptime}s\nIP: {ip}"
 
 
