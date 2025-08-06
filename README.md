@@ -1,5 +1,7 @@
 # Arianna Method Linux Kernel
 
+[![CI](https://github.com/OWNER/Arianna-Linux-Kernel/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/Arianna-Linux-Kernel/actions/workflows/ci.yml)
+
 🔹 This is not just a Linux kernel. Arianna Core is a compact AI-first kernel framework.
 
 ## Building
