@@ -41,6 +41,7 @@ class LetsGoProcess:
 
     def __init__(self) -> None:
         self.proc: asyncio.subprocess.Process | None = None
+        self._lock = asyncio.Lock()
 
     async def start(self) -> None:
         self.proc = await asyncio.create_subprocess_exec(
@@ -53,33 +54,35 @@ class LetsGoProcess:
         await self._read_until_prompt()
 
     async def _read_until_prompt(self) -> None:
-        if not self.proc:
+        if not self.proc or not self.proc.stdout:
             return
-        while True:
-            line = await self.proc.stdout.readline()
-            if not line:
+        prompt_bytes = (PROMPT + " ").encode()
+        buffer = b""
+        while not buffer.endswith(prompt_bytes):
+            chunk = await self.proc.stdout.read(1)
+            if not chunk:
                 break
-            if line.decode().strip() == PROMPT:
-                break
+            buffer += chunk
 
     async def run(self, cmd: str) -> str:
-        if not self.proc:
+        if not self.proc or not self.proc.stdin or not self.proc.stdout:
             raise RuntimeError("process not started")
-        assert self.proc.stdin
-        self.proc.stdin.write((cmd + "\n").encode())
-        await self.proc.stdin.drain()
-        lines: list[str] = []
-        while True:
-            line = await self.proc.stdout.readline()
-            if not line:
-                break
-            text = line.decode()
-            if text.strip() == PROMPT:
-                break
+        async with self._lock:
+            self.proc.stdin.write((cmd + "\n").encode())
+            await self.proc.stdin.drain()
+            prompt_bytes = (PROMPT + " ").encode()
+            buffer = b""
+            while not buffer.endswith(prompt_bytes):
+                chunk = await self.proc.stdout.read(1)
+                if not chunk:
+                    break
+                buffer += chunk
+            text = buffer.decode()
+            if text.endswith(PROMPT + " "):
+                text = text[: -len(PROMPT) - 1]
             if text.startswith(PROMPT + " "):
                 text = text[len(PROMPT) + 1 :]
-            lines.append(text)
-        return "".join(lines).strip()
+            return text.strip()
 
 
 letsgo = LetsGoProcess()
