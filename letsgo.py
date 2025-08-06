@@ -410,8 +410,8 @@ async def main() -> None:
         if handler:
             reply, colored = await handler(user)
         else:
-            reply = f"echo: {user}"
-            colored = reply
+            reply = f"Unknown command: {base}. Try /help for guidance."
+            colored = color(reply, SETTINGS.red)
         if colored is not None:
             print(colored)
         log(f"letsgo:{reply}")
