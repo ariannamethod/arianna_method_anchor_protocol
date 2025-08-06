@@ -268,7 +268,22 @@ async def main() -> None:
     readline.parse_and_bind("tab: complete")
 
     def completer(text: str, state: int) -> str | None:
-        matches = [cmd for cmd in COMMANDS if cmd.startswith(text)]
+        buffer = readline.get_line_buffer()
+        if buffer.startswith("/run "):
+            path = Path(text)
+            directory = path.parent if path.parent != Path(".") else Path(".")
+            try:
+                entries = os.listdir(directory)
+            except OSError:
+                matches: list[str] = []
+            else:
+                matches = [
+                    str(directory / entry) if directory != Path(".") else entry
+                    for entry in entries
+                    if entry.startswith(path.name)
+                ]
+        else:
+            matches = [cmd for cmd in COMMANDS if cmd.startswith(text)]
         return matches[state] if state < len(matches) else None
 
     readline.set_completer(completer)
