@@ -54,6 +54,7 @@ class Settings:
     cyan: str = "\033[36m"
     reset: str = "\033[0m"
     max_log_files: int = 100
+    command_timeout: int = 10
 
 
 def _load_settings(path: Path = CONFIG_PATH) -> Settings:
@@ -156,13 +157,15 @@ async def async_input(prompt: str) -> str:
 
 
 async def run_command(
-    command: str, on_line: Callable[[str], None] | None = None
+    command: str,
+    on_line: Callable[[str], None] | None = None,
+    timeout: int = 10,
 ) -> str:
     """Execute ``command`` and return its output.
 
     If ``on_line`` is provided, it is called with each line of output as it
-    becomes available. A 10‑second timeout is enforced and any error output is
-    colored red.
+    becomes available. A timeout is enforced and any error output is colored
+    red.
     """
     try:
         if on_line:
@@ -176,7 +179,7 @@ async def run_command(
         loop = asyncio.get_running_loop()
         start = loop.time()
         while True:
-            remaining = 10 - (loop.time() - start)
+            remaining = timeout - (loop.time() - start)
             if remaining <= 0:
                 proc.kill()
                 await proc.communicate()
@@ -302,7 +305,7 @@ async def handle_run(user: str) -> Tuple[str, str | None]:
         lines.append(line)
         print(line)
 
-    reply = await run_command(command, _cb)
+    reply = await run_command(command, _cb, SETTINGS.command_timeout)
     combined = "\n".join(lines).strip()
     colored = reply if reply != combined else None
     reply = reply if colored else combined
