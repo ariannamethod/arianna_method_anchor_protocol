@@ -10,8 +10,9 @@ from pathlib import Path
 from collections import deque
 from typing import Deque
 
-# //: each session logs to its own file
-LOG_DIR = Path(__file__).resolve().parent / "log"
+# //: each session logs to its own file in the repository root
+ROOT_DIR = Path(__file__).resolve().parent
+LOG_DIR = ROOT_DIR / "log"
 SESSION_ID = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
 LOG_PATH = LOG_DIR / f"{SESSION_ID}.log"
 
