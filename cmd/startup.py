@@ -3,7 +3,7 @@
 import subprocess
 from pathlib import Path
 
-LETSGO = Path(__file__).resolve().parent / "letsgo.py"
+LETSGO = Path(__file__).resolve().parent.parent / "letsgo.py"
 
 
 def main() -> None:

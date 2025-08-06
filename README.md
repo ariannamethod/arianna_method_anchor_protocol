@@ -18,7 +18,7 @@ Node.js 18+ complements Python, providing asynchronous I/O modeled as a non-bloc
 
 Bash, curl, and nano compose the minimal interactive toolkit; each utility occupies a vertex in a dependency graph ensuring accessibility without bloat.
 
-The CLI terminal shipped in cmd/letsgo.py demonstrates logging and echo capabilities, acting as a proof of concept for higher-order reasoning modules.
+The CLI terminal shipped in `letsgo.py` demonstrates logging and echo capabilities, acting as a proof of concept for higher-order reasoning modules.
 
 Logs are stored in /arianna_core/log and each entry is timestamped, forming a sequence ((t_i, m_i)) representing chronological states of dialogue.
 
