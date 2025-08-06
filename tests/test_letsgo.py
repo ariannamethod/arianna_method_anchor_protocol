@@ -93,3 +93,30 @@ def test_search_history(tmp_path, monkeypatch):
     monkeypatch.setattr(letsgo, "HISTORY_PATH", hist)
     result = letsgo.search_history("foo")
     assert result.splitlines() == ["foo", "foobar"]
+
+
+def test_clear_command_registered(monkeypatch):
+    commands = []
+    handlers = {}
+    letsgo.COMMAND_MAP.clear()
+    letsgo.register_core(commands, handlers)
+    assert "/clear" in commands
+
+    called = {"cmd": None}
+
+    def fake_system(cmd):
+        called["cmd"] = cmd
+
+    monkeypatch.setattr(os, "system", fake_system)
+    asyncio.run(handlers["/clear"]("/clear"))
+    assert called["cmd"] == "clear"
+
+
+def test_help_lists_command_descriptions():
+    commands = []
+    handlers = {}
+    letsgo.COMMAND_MAP.clear()
+    letsgo.register_core(commands, handlers)
+    output, _ = asyncio.run(letsgo.handle_help("/help"))
+    assert "/clear" in output
+    assert "clear the terminal screen" in output

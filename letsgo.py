@@ -90,6 +90,7 @@ HISTORY_PATH = LOG_DIR / "history"
 Handler = Callable[[str], Awaitable[Tuple[str, str | None]]]
 COMMANDS: List[str] = []
 COMMAND_HANDLERS: Dict[str, Handler] = {}
+COMMAND_MAP: Dict[str, Tuple[Handler, str]] = {}
 
 
 def _ensure_log_dir() -> None:
@@ -287,8 +288,8 @@ async def handle_run(user: str) -> Tuple[str, str | None]:
 
 
 async def handle_clear(_: str) -> Tuple[str, str | None]:
-    reply = clear_screen()
-    return reply, reply
+    os.system("clear")
+    return "", None
 
 
 async def handle_history(user: str) -> Tuple[str, str | None]:
@@ -299,12 +300,8 @@ async def handle_history(user: str) -> Tuple[str, str | None]:
 
 
 async def handle_help(_: str) -> Tuple[str, str | None]:
-    reply = (
-        "Commands: /status, /time, /run <cmd>, "
-        "/summarize [term [limit]] [--history], "
-        "/clear, /history [N], /search <pattern>\n"
-        "Config: ~/.letsgo/config for prompt, colors, max_log_files"
-    )
+    lines = [f"{cmd} - {desc}" for cmd, (_, desc) in sorted(COMMAND_MAP.items())]
+    reply = "\n".join(lines)
     return reply, reply
 
 
@@ -330,30 +327,19 @@ async def handle_search(user: str) -> Tuple[str, str | None]:
 
 
 def register_core(commands: List[str], handlers: Dict[str, Handler]) -> None:
-    commands.extend(
-        [
-            "/status",
-            "/time",
-            "/run",
-            "/summarize",
-            "/clear",
-            "/history",
-            "/help",
-            "/search",
-        ]
-    )
-    handlers.update(
-        {
-            "/status": handle_status,
-            "/time": handle_time,
-            "/run": handle_run,
-            "/summarize": handle_summarize,
-            "/clear": handle_clear,
-            "/history": handle_history,
-            "/help": handle_help,
-            "/search": handle_search,
-        }
-    )
+    core_commands = {
+        "/status": (handle_status, "show basic system metrics"),
+        "/time": (handle_time, "show current UTC time"),
+        "/run": (handle_run, "run a shell command"),
+        "/summarize": (handle_summarize, "summarize log entries"),
+        "/clear": (handle_clear, "clear the terminal screen"),
+        "/history": (handle_history, "show command history"),
+        "/help": (handle_help, "show this help message"),
+        "/search": (handle_search, "search command history"),
+    }
+    commands.extend(core_commands.keys())
+    handlers.update({cmd: func for cmd, (func, _) in core_commands.items()})
+    COMMAND_MAP.update(core_commands)
 
 
 def _load_plugins(commands: List[str], handlers: Dict[str, Handler]) -> None:
