@@ -74,6 +74,8 @@ COMMANDS: List[str] = [
     "/time",
     "/run",
     "/summarize",
+    "/clear",
+    "/history",
     "/help",
 ]
 
@@ -138,6 +140,21 @@ def run_command(command: str) -> str:
         return color(output, SETTINGS.red)
 
 
+def clear_screen() -> str:
+    """Return the control sequence that clears the terminal."""
+    return "\033c"
+
+
+def history(limit: int = 20) -> str:
+    """Return the last ``limit`` commands from ``HISTORY_PATH``."""
+    try:
+        with HISTORY_PATH.open() as fh:
+            lines = [line.rstrip("\n") for line in fh]
+    except FileNotFoundError:
+        return "no history"
+    return "\n".join(lines[-limit:])
+
+
 def _iter_log_lines() -> Iterable[str]:
     """Yield log lines from all log files in order."""
     for file in sorted(LOG_DIR.glob("*.log")):
@@ -191,10 +208,18 @@ def main() -> None:
         elif user.startswith("/run "):
             reply = run_command(user.partition(" ")[2])
             colored = reply
+        elif user.strip() == "/clear":
+            reply = clear_screen()
+            colored = reply
+        elif user.startswith("/history"):
+            parts = user.split()
+            limit = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 20
+            reply = history(limit)
+            colored = reply
         elif user.strip() == "/help":
             reply = (
-                "Commands: /status, /time, /run <cmd>, "
-                "/summarize [term [limit]]\n"
+                "Commands: /status, /time, /run <cmd>, /summarize [term [limit]], "
+                "/clear, /history [N]\n"
                 "Config: ~/.letsgo/config for prompt and colors"
             )
             colored = reply
