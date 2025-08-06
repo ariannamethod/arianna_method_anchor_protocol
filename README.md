@@ -52,6 +52,20 @@ The bridge and HTTP server expect the following variables to be set:
 
 ---
 
+## Настройка токенов
+
+- `API_TOKEN` — токен для HTTP и WebSocket. Перед запуском задайте его через `export API_TOKEN=...`.
+- `TELEGRAM_TOKEN` — токен Telegram‑бота, необходим для включения бота.
+- В веб‑интерфейсе откройте `arianna_terminal.html` и введите токен в поле **Token**; значение сохраняется в `localStorage`.
+
+Пример запуска:
+
+```bash
+API_TOKEN=secret TELEGRAM_TOKEN=123 python bridge.py
+```
+
+---
+
 ## Hardware Requirements
 
 The kernel and userland target generic x86_64 CPUs. GPU drivers and libraries are omitted, so the system runs entirely on CPU hardware.
