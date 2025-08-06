@@ -178,6 +178,27 @@ if (localStorage.getItem('amlkToken')) {
 } else {
   tokenDialog.showModal();
 }
+
+document.addEventListener('dragover', ev => ev.preventDefault());
+document.addEventListener('drop', async ev => {
+  ev.preventDefault();
+  const file = ev.dataTransfer.files[0];
+  if (!file || !(window.Telegram && window.Telegram.WebApp)) return;
+  try {
+    const buffer = await file.arrayBuffer();
+    const saved = await window.Telegram.WebApp.saveFile({
+      data: buffer,
+      file_name: file.name,
+      mime_type: file.type,
+    });
+    const opened = await window.Telegram.WebApp.openFile({ path: saved.path });
+    const form = new FormData();
+    form.append('file', new File([opened], file.name, { type: file.type }));
+    await fetch('/upload', { method: 'POST', body: form });
+  } catch (err) {
+    console.error('upload failed', err);
+  }
+});
 </script>
 </body>
 </html>

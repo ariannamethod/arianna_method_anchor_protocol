@@ -24,6 +24,7 @@ from typing import (
 )
 from dataclasses import dataclass
 import re
+import shutil
 
 _NO_COLOR_FLAG = "--no-color"
 USE_COLOR = (
@@ -96,6 +97,7 @@ HISTORY_PATH = LOG_DIR / "history"
 PY_TIMEOUT = 5
 
 ERROR_LOG_PATH = LOG_DIR / "errors.log"
+UPLOAD_DIR = Path("/arianna_core/upload")
 
 Handler = Callable[[str], Awaitable[Tuple[str, str | None]]]
 
@@ -409,6 +411,23 @@ async def handle_color(user: str) -> Tuple[str, str | None]:
     return reply, color(reply, SETTINGS.green)
 
 
+async def handle_upload(user: str) -> Tuple[str, str | None]:
+    parts = user.split(maxsplit=1)
+    if len(parts) != 2:
+        reply = "Usage: /upload <name>"
+        return reply, reply
+    name = parts[1]
+    src = UPLOAD_DIR / name
+    dest = Path(name)
+    try:
+        shutil.copy(src, dest)
+    except FileNotFoundError:
+        reply = f"File not found: {name}"
+        return reply, color(reply, SETTINGS.red)
+    reply = f"file {name} copied"
+    return reply, reply
+
+
 CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
     "/status": (handle_status, "show basic system metrics"),
     "/time": (handle_time, "show current UTC time"),
@@ -421,6 +440,7 @@ CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
     "/search": (handle_search, "search command history"),
     "/ping": (handle_ping, "reply with pong"),
     "/color": (handle_color, "toggle colored output"),
+    "/upload": (handle_upload, "copy uploaded file to current directory"),
 }
 
 COMMAND_HANDLERS: Dict[str, Handler] = {
