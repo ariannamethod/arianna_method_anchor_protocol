@@ -7,15 +7,26 @@ import os
 import socket
 import subprocess
 import sys
+import readline
+import atexit
 from datetime import datetime
 from pathlib import Path
 from collections import deque
-from typing import Deque, Iterable
+from typing import Deque, Iterable, List
 
 # //: each session logs to its own file under a fixed directory
 LOG_DIR = Path("/arianna_core/log")
 SESSION_ID = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
 LOG_PATH = LOG_DIR / f"{SESSION_ID}.log"
+HISTORY_PATH = LOG_DIR / "history"
+
+COMMANDS: List[str] = [
+    "/status",
+    "/time",
+    "/run",
+    "/summarize",
+    "/help",
+]
 
 
 def _ensure_log_dir() -> None:
@@ -29,6 +40,22 @@ def _ensure_log_dir() -> None:
 def log(message: str) -> None:
     with LOG_PATH.open("a") as fh:
         fh.write(f"{datetime.utcnow().isoformat()} {message}\n")
+
+
+def _setup_readline() -> None:
+    """Configure history and tab completion."""
+    try:
+        readline.read_history_file(str(HISTORY_PATH))
+    except FileNotFoundError:
+        pass
+    readline.parse_and_bind("tab: complete")
+
+    def completer(text: str, state: int) -> str | None:
+        matches = [cmd for cmd in COMMANDS if cmd.startswith(text)]
+        return matches[state] if state < len(matches) else None
+
+    readline.set_completer(completer)
+    atexit.register(readline.write_history_file, str(HISTORY_PATH))
 
 
 def _first_ip() -> str:
@@ -98,6 +125,7 @@ def summarize(term: str | None = None, limit: int = 5) -> str:
 
 def main() -> None:
     _ensure_log_dir()
+    _setup_readline()
     log("session_start")
     print("LetsGo terminal ready. Type 'exit' to quit.")
     while True:
@@ -115,7 +143,10 @@ def main() -> None:
         elif user.startswith("/run "):
             reply = run_command(user.partition(" ")[2])
         elif user.strip() == "/help":
-            reply = "Commands: /status, /time, /run <cmd>, /summarize [term [limit]]"
+            reply = (
+                "Commands: /status, /time, /run <cmd>, "
+                "/summarize [term [limit]]"
+            )
         elif user.startswith("/summarize"):
             parts = user.split()[1:]
             limit = 5

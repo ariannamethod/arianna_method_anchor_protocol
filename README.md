@@ -120,6 +120,8 @@ Other interfaces—serial TTYs, named pipes or custom RPC schemes—remain feasi
 
 The terminal is invoked after login and serves as the primary shell for Arianna Core. Each session creates a fresh log in `/arianna_core/log/`, stamped with UTC time, ensuring chronological reconstruction of interactions.
 
+Command history is persisted to `/arianna_core/log/history`. Existing entries load at startup and are written back on exit. Tab completion, powered by `readline`, suggests built-in verbs like `/status`, `/time`, `/run`, `/summarize`, and `/help`.
+
 A `/status` command reports CPU core count, raw uptime seconds read from `/proc/uptime`, and the current host IP. This offers an at-a-glance check that the minimal environment is healthy.
 
 The `/summarize` command performs a naive search across all session logs and prints the last five matches, demonstrating how higher-order reasoning can be layered atop simple text filters.
