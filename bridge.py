@@ -208,7 +208,8 @@ async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     except Exception as exc:  # noqa: BLE001 - send error to user
         await update.message.reply_text(f"Error: {exc}")
         return
-    if cmd in MAIN_COMMANDS:
+    base = cmd.split()[0]
+    if base in MAIN_COMMANDS:
         await update.message.reply_text(output, reply_markup=INLINE_KEYBOARD)
     else:
         await update.message.reply_text(output)
