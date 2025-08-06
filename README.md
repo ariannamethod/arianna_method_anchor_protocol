@@ -4,6 +4,10 @@
 
 🔹 This is not just a Linux kernel. Arianna Core is a compact AI-first kernel framework.
 
+## Hardware Requirements
+
+The kernel and userland target generic x86_64 CPUs. GPU drivers and libraries are omitted, so the system runs entirely on CPU hardware.
+
 ## Continuous Integration
 
 The CI pipeline builds the kernel and boots it in QEMU using only CPU resources. GPU devices and drivers are absent, and QEMU
@@ -11,9 +15,28 @@ is invoked with software acceleration so the workflow succeeds on generic CPU-on
 
 ## Building
 
-The project ships a single entry script, `./build/build_ariannacore.sh`, which acquires kernel sources, prepares an `arianna_core_root` userland and emits a flat image. Run it from a fresh checkout to obtain a `bzImage` coupled with an `initramfs` that is aware of the assistant and the motd.
+First build the trimmed package manager:
 
-Passing `--with-python` expands the userland with the CPython runtime and tooling. The `--clean` flag wipes previous artifacts, and `--test-qemu` executes a minimal boot in QEMU to validate that the emission succeeded.
+```
+./build/build_apk_tools.sh
+```
+
+Then assemble the kernel and userland:
+
+```
+./build/build_ariannacore.sh [--with-python] [--clean] [--test-qemu]
+```
+
+The second script fetches kernel sources, stages `arianna_core_root` along with utilities from `for-codex-alpine-conf`, and emits a flat image. The optional flags expand the userland, clean previous artifacts or run a QEMU smoke test.
+
+## Alpine Enhancements
+
+Two curated Alpine subprojects enrich the system while keeping the footprint small:
+
+- `for-codex-alpine-apk-tools` provides a patched `apk` built by `build_apk_tools.sh`, enabling package installs without heavy dependencies.
+- `for-codex-alpine-conf` supplies lightweight setup scripts; non-essential modules are pruned so the kernel remains CPU-only and minimal.
+
+Together they broaden userland capabilities without introducing GPU requirements.
 
 ## Checksum verification
 
