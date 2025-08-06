@@ -3,7 +3,13 @@ import os
 import time
 from typing import Dict
 
-from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import (
+    Depends,
+    FastAPI,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from telegram import (
@@ -88,8 +94,17 @@ class LetsGoProcess:
                 text = text[len(PROMPT) + 1 :]
             return text.strip()
 
+    async def stop(self) -> None:
+        if self.proc and self.proc.stdin:
+            self.proc.stdin.close()
+        if self.proc:
+            self.proc.terminate()
+            await self.proc.wait()
+            self.proc = None
+
 
 letsgo = LetsGoProcess()
+sessions: Dict[str, LetsGoProcess] = {}
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -125,17 +140,26 @@ async def run_command(
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
     token = websocket.query_params.get("token")
-    if token != API_TOKEN:
+    sid = websocket.query_params.get("sid")
+    if token != API_TOKEN or not sid:
         await websocket.close(code=1008)
         return
+    proc = sessions.get(sid)
+    if not proc:
+        proc = LetsGoProcess()
+        await proc.start()
+        sessions[sid] = proc
     await websocket.accept()
     try:
         while True:
             cmd = await websocket.receive_text()
-            output = await letsgo.run(cmd)
+            output = await proc.run(cmd)
             await websocket.send_text(output)
     except WebSocketDisconnect:
         pass
+    finally:
+        await proc.stop()
+        sessions.pop(sid, None)
 
 
 async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -223,7 +247,11 @@ async def start_bot() -> None:
 async def main() -> None:
     await letsgo.start()
     server = uvicorn.Server(
-        uvicorn.Config(app, host="0.0.0.0", port=int(os.getenv("PORT", "8000")))
+        uvicorn.Config(
+            app,
+            host="0.0.0.0",
+            port=int(os.getenv("PORT", "8000")),
+        )
     )
     await asyncio.gather(server.serve(), start_bot())
 
