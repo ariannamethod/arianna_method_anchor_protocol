@@ -70,3 +70,25 @@ def test_history_last_n(tmp_path, monkeypatch):
 def test_history_no_file(tmp_path, monkeypatch):
     monkeypatch.setattr(letsgo, "HISTORY_PATH", tmp_path / "missing")
     assert letsgo.history() == "no history"
+
+
+def test_log_cleanup(tmp_path, monkeypatch):
+    log_dir = tmp_path / "log"
+    log_dir.mkdir()
+    for i in range(5):
+        p = log_dir / f"{i}.log"
+        p.write_text("x")
+        os.utime(p, (i, i))
+    monkeypatch.setattr(letsgo, "LOG_DIR", log_dir)
+    monkeypatch.setattr(letsgo.SETTINGS, "max_log_files", 3)
+    letsgo._ensure_log_dir()
+    remaining = sorted(f.name for f in log_dir.glob("*.log"))
+    assert remaining == ["2.log", "3.log", "4.log"]
+
+
+def test_search_history(tmp_path, monkeypatch):
+    hist = tmp_path / "history"
+    hist.write_text("foo\nbar\nfoobar\n")
+    monkeypatch.setattr(letsgo, "HISTORY_PATH", hist)
+    result = letsgo.search_history("foo")
+    assert result.splitlines() == ["foo", "foobar"]
