@@ -187,7 +187,10 @@ async def run_command(
                 await proc.communicate()
                 return color("command timed out", SETTINGS.red)
             try:
-                line = await asyncio.wait_for(proc.stdout.readline(), timeout=remaining)
+                line = await asyncio.wait_for(
+                    proc.stdout.readline(),
+                    timeout=remaining,
+                )
             except asyncio.TimeoutError:
                 proc.kill()
                 await proc.communicate()
@@ -326,7 +329,9 @@ async def handle_history(user: str) -> Tuple[str, str | None]:
 
 
 async def handle_help(_: str) -> Tuple[str, str | None]:
-    lines = [f"{cmd} - {desc}" for cmd, (_, desc) in sorted(COMMAND_MAP.items())]
+    lines: list[str] = []
+    for cmd, (_, desc) in sorted(COMMAND_MAP.items()):
+        lines.append(f"{cmd} - {desc}")
     reply = "\n".join(lines)
     return reply, reply
 
@@ -352,6 +357,18 @@ async def handle_search(user: str) -> Tuple[str, str | None]:
     return reply, reply
 
 
+async def handle_color(user: str) -> Tuple[str, str | None]:
+    parts = user.split()
+    if len(parts) != 2 or parts[1] not in {"on", "off"}:
+        reply = "Usage: /color on|off"
+        return reply, reply
+    global USE_COLOR
+    USE_COLOR = parts[1] == "on"
+    state = "enabled" if USE_COLOR else "disabled"
+    reply = f"color {state}"
+    return reply, color(reply, SETTINGS.green)
+
+
 def register_core(commands: List[str], handlers: Dict[str, Handler]) -> None:
     core_commands = {
         "/status": (handle_status, "show basic system metrics"),
@@ -362,6 +379,7 @@ def register_core(commands: List[str], handlers: Dict[str, Handler]) -> None:
         "/history": (handle_history, "show command history"),
         "/help": (handle_help, "show this help message"),
         "/search": (handle_search, "search command history"),
+        "/color": (handle_color, "toggle colored output"),
     }
     commands.extend(core_commands.keys())
     handlers.update({cmd: func for cmd, (func, _) in core_commands.items()})
