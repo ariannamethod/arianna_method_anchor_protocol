@@ -4,20 +4,11 @@ import sys
 from pathlib import Path
 import asyncio
 
+from tests.utils import _write_log
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import letsgo  # noqa: E402
-
-
-# Helper to create log files
-
-
-def _write_log(log_dir: Path, name: str, lines: list[str]):
-    path = log_dir / f"{name}.log"
-    with path.open("w") as fh:
-        for line in lines:
-            fh.write(line + "\n")
-    return path
 
 
 def test_status_fields(monkeypatch):
