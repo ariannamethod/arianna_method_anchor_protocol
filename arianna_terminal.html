@@ -8,14 +8,31 @@
   body { margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; }
   #terminal { flex: 1; }
   .frame { border: 1px solid #666; margin: 8px; flex: 1; }
+  #status { margin: 8px; font-family: sans-serif; }
+  #status::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+    background: #666;
+    vertical-align: middle;
+  }
+  #status.open::before { background: #0a0; }
+  #status.close::before { background: #a00; }
+  #status.error::before { background: #e69500; }
 </style>
 </head>
 <body>
 <div id="controls">
-  <input id="token-input" type="text" placeholder="Token" />
-  <button id="connect-btn">Connect</button>
-  <span id="status"></span>
+  <span id="status" class="close">close</span>
 </div>
+<dialog id="token-dialog">
+  <label for="token-input">Token:</label>
+  <input id="token-input" type="text" />
+  <button id="token-save">Save</button>
+</dialog>
 <div id="terminal" class="frame"></div>
 <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
 <script>
@@ -33,37 +50,51 @@ term.open(document.getElementById('terminal'));
 let buffer = '';
 let ws;
 const statusEl = document.getElementById('status');
+const tokenDialog = document.getElementById('token-dialog');
 const tokenInput = document.getElementById('token-input');
-tokenInput.value = localStorage.getItem('amlkToken') || '';
+
+function setStatus(state) {
+  statusEl.textContent = state;
+  statusEl.className = state;
+}
 
 function connect() {
-  const token = localStorage.getItem('amlkToken') || 'change-me';
+  const token = localStorage.getItem('amlkToken');
+  if (!token) {
+    tokenDialog.showModal();
+    return;
+  }
   if (ws) {
     ws.close();
   }
   ws = new WebSocket(`ws://${location.host}/ws?token=${token}`);
   ws.onopen = () => {
-    statusEl.textContent = 'connected';
+    setStatus('open');
     term.write('>> ');
   };
   ws.onmessage = ev => {
     term.write('\r\n' + ev.data + '\r\n>> ');
   };
   ws.onclose = () => {
-    statusEl.textContent = 'error';
+    setStatus('close');
     term.write('\r\n[connection closed]\r\n');
   };
   ws.onerror = () => {
-    statusEl.textContent = 'error';
+    setStatus('error');
   };
 }
 
-document.getElementById('connect-btn').addEventListener('click', () => {
+document.getElementById('token-save').addEventListener('click', () => {
   localStorage.setItem('amlkToken', tokenInput.value);
+  tokenDialog.close();
   connect();
 });
 
-connect();
+if (localStorage.getItem('amlkToken')) {
+  connect();
+} else {
+  tokenDialog.showModal();
+}
 
 term.onData(data => {
   if (data === '\r') {
