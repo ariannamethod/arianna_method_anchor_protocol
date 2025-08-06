@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Arianna Terminal</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
+<style>
+  body { margin: 0; padding: 0; display: flex; height: 100vh; }
+  #terminal { flex: 1; }
+  .frame { border: 1px solid #666; margin: 8px; flex: 1; }
+</style>
+</head>
+<body>
+<div id="terminal" class="frame"></div>
+<script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
+<script>
+const term = new Terminal({
+  cursorBlink: true,
+  theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? {
+    background: '#1e1e1e',
+    foreground: '#d4d4d4'
+  } : {
+    background: '#ffffff',
+    foreground: '#000000'
+  }
+});
+term.open(document.getElementById('terminal'));
+let buffer = '';
+const token = localStorage.getItem('amlkToken') || 'change-me';
+const ws = new WebSocket(`ws://${location.host}/ws?token=${token}`);
+term.write('>> ');
+term.onData(data => {
+  if (data === '\r') {
+    ws.send(buffer);
+    buffer = '';
+  } else if (data === '\u007f') {
+    if (buffer.length > 0) {
+      buffer = buffer.slice(0, -1);
+      term.write('\b \b');
+    }
+  } else {
+    buffer += data;
+    term.write(data);
+  }
+});
+ws.onmessage = ev => {
+  term.write('\r\n' + ev.data + '\r\n>> ');
+};
+ws.onclose = () => term.write('\r\n[connection closed]\r\n');
+</script>
+</body>
+</html>

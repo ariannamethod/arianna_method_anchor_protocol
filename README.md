@@ -200,6 +200,45 @@ Ultimately the architecture invites self-reflection. When the terminal inspects 
 
 ⸻
 
+## Railway Deployment and Remote Interfaces
+
+An HTTP bridge exposes `letsgo.py` to web clients and chat platforms. The container image is defined by `Dockerfile` and starts `bridge.py`, which spawns the terminal and offers three entry points:
+
+* **REST** – `POST /run` with HTTP basic auth.
+* **WebSocket** – `/ws?token=<API_TOKEN>` for full-duplex terminals.
+* **Telegram** – messages forwarded to the same session when `TELEGRAM_TOKEN` is set.
+
+### Deploy
+
+```
+railway init            # once
+railway up              # builds Dockerfile and deploys
+```
+
+`API_TOKEN` secures all endpoints; `TELEGRAM_TOKEN` enables the bot. Railway injects these as environment variables.
+
+### API usage
+
+```
+curl -u user:$API_TOKEN -X POST https://<host>/run -d cmd="/status"
+```
+
+### WebSocket
+
+```javascript
+const ws = new WebSocket(`wss://<host>/ws?token=${API_TOKEN}`);
+ws.onmessage = e => console.log(e.data);
+ws.onopen = () => ws.send('/time');
+```
+
+The `arianna_terminal.html` page in the repository consumes this WebSocket and provides a mobile-friendly xterm.js console.
+
+### One kernel, many clients
+
+Both the Telegram bot and HTML terminal communicate with the same `letsgo.py` process via the bridge, so commands from either interface share history and context.
+
+⸻
+
 License
 
 This project is licensed under the GNU General Public License v3.0.
