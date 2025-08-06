@@ -10,6 +10,21 @@ The project ships a single entry script, `./build/build_ariannacore.sh`, which a
 
 Passing `--with-python` expands the userland with the CPython runtime and tooling. The `--clean` flag wipes previous artifacts, and `--test-qemu` executes a minimal boot in QEMU to validate that the emission succeeded.
 
+## Checksum verification
+
+For reproducibility the build script verifies downloads against known SHA256 sums using:
+
+```
+echo "<sha256>  <file>" | sha256sum -c -
+```
+
+The current release embeds the following official values:
+
+- `linux-6.6.4.tar.gz`: `43d77b1816942ed010ac5ded8deb8360f0ae9cca3642dc7185898dab31d21396`
+- `alpine-minirootfs-3.19.8-x86_64.tar.gz`: `48230b61c9e22523413e3b90b2287469da1d335a11856e801495a896fd955922`
+
+If a checksum mismatch occurs the build aborts immediately.
+
 ## Running in QEMU
 
 A minimal invocation uses the `arianna-core.img` created during the build. QEMU can operate in headless mode:
