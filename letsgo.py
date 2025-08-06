@@ -96,9 +96,6 @@ LOG_PATH = LOG_DIR / f"{SESSION_ID}.log"
 HISTORY_PATH = LOG_DIR / "history"
 
 Handler = Callable[[str], Awaitable[Tuple[str, str | None]]]
-COMMANDS: List[str] = []
-COMMAND_HANDLERS: Dict[str, Handler] = {}
-COMMAND_MAP: Dict[str, Tuple[Handler, str]] = {}
 
 
 def _ensure_log_dir() -> None:
@@ -369,21 +366,29 @@ async def handle_color(user: str) -> Tuple[str, str | None]:
     return reply, color(reply, SETTINGS.green)
 
 
+CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
+    "/status": (handle_status, "show basic system metrics"),
+    "/time": (handle_time, "show current UTC time"),
+    "/run": (handle_run, "run a shell command"),
+    "/summarize": (handle_summarize, "summarize log entries"),
+    "/clear": (handle_clear, "clear the terminal screen"),
+    "/history": (handle_history, "show command history"),
+    "/help": (handle_help, "show this help message"),
+    "/search": (handle_search, "search command history"),
+    "/color": (handle_color, "toggle colored output"),
+}
+
+COMMAND_HANDLERS: Dict[str, Handler] = {
+    cmd: func for cmd, (func, _) in CORE_COMMANDS.items()
+}
+COMMANDS: List[str] = list(COMMAND_HANDLERS.keys())
+COMMAND_MAP: Dict[str, Tuple[Handler, str]] = dict(CORE_COMMANDS)
+
+
 def register_core(commands: List[str], handlers: Dict[str, Handler]) -> None:
-    core_commands = {
-        "/status": (handle_status, "show basic system metrics"),
-        "/time": (handle_time, "show current UTC time"),
-        "/run": (handle_run, "run a shell command"),
-        "/summarize": (handle_summarize, "summarize log entries"),
-        "/clear": (handle_clear, "clear the terminal screen"),
-        "/history": (handle_history, "show command history"),
-        "/help": (handle_help, "show this help message"),
-        "/search": (handle_search, "search command history"),
-        "/color": (handle_color, "toggle colored output"),
-    }
-    commands.extend(core_commands.keys())
-    handlers.update({cmd: func for cmd, (func, _) in core_commands.items()})
-    COMMAND_MAP.update(core_commands)
+    commands.extend(CORE_COMMANDS.keys())
+    handlers.update(COMMAND_HANDLERS)
+    COMMAND_MAP.update(CORE_COMMANDS)
 
 
 def _load_plugins(commands: List[str], handlers: Dict[str, Handler]) -> None:
@@ -403,11 +408,8 @@ async def main() -> None:
     except FileNotFoundError:
         pass
 
-    COMMANDS.clear()
-    COMMAND_HANDLERS.clear()
-    register_core(COMMANDS, COMMAND_HANDLERS)
     _load_plugins(COMMANDS, COMMAND_HANDLERS)
-    command_summary = " ".join(sorted(COMMAND_MAP))
+    command_summary = " ".join(sorted(COMMAND_HANDLERS))
 
     readline.parse_and_bind("tab: complete")
 
@@ -427,7 +429,7 @@ async def main() -> None:
                     if entry.startswith(path.name)
                 ]
         else:
-            matches = [cmd for cmd in COMMANDS if cmd.startswith(text)]
+            matches = [cmd for cmd in COMMAND_HANDLERS if cmd.startswith(text)]
         return matches[state] if state < len(matches) else None
 
     readline.set_completer(completer)
