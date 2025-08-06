@@ -2,10 +2,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APK_TOOLS_DIR="$SCRIPT_DIR/apk-tools"
+APK_TOOLS_DIR="$SCRIPT_DIR/../for-codex-alpine-apk-tools"
 
 if [ ! -d "$APK_TOOLS_DIR" ]; then
-  git clone https://github.com/AriannaMethod/AM-alpine-apk-tools "$APK_TOOLS_DIR"
+  echo "APK tools directory not found: $APK_TOOLS_DIR" >&2
+  exit 1
 fi
 
 make -C "$APK_TOOLS_DIR"
