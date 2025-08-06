@@ -101,6 +101,8 @@ if [ "$TEST_QEMU" -eq 1 ]; then
     -nographic \
     -no-reboot \
     -serial mon:stdio \
+    -machine accel=tcg \
+    -vga none \
     -m 512M
 fi
 
