@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APK_TOOLS_DIR="${APK_TOOLS_DIR:-$SCRIPT_DIR/../for-codex-alpine-apk-tools}"
+APK_TOOLS_DIR="${APK_TOOLS_DIR:-$SCRIPT_DIR/../apk-tools}"
 OUTPUT_DIR="${OUTPUT_DIR:-$APK_TOOLS_DIR/out}"
 
 if [ ! -d "$APK_TOOLS_DIR" ]; then

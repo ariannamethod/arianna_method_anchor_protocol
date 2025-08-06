@@ -11,6 +11,6 @@ def test_build_custom_apk():
         subprocess.check_call([str(script)])
     except subprocess.CalledProcessError as exc:
         pytest.skip(f"apk-tools build failed: {exc}")
-    apk_path = repo_root / "for-codex-alpine-apk-tools" / "src" / "apk"
+    apk_path = repo_root / "apk-tools" / "src" / "apk"
     assert apk_path.is_file()
     subprocess.check_call([str(apk_path), "--version"])

@@ -27,18 +27,11 @@ Then assemble the kernel and userland:
 ./build/build_ariannacore.sh [--with-python] [--clean] [--test-qemu]
 ```
 
-The second script fetches kernel sources, stages `arianna_core_root` along with utilities from `for-codex-alpine-conf`, and emits a flat image. The optional flags expand the userland, clean previous artifacts or run a QEMU smoke test.
+The second script fetches kernel sources, stages `arianna_core_root` built from the Alpine lineage, and emits a flat image. The optional flags expand the userland, clean previous artifacts or run a QEMU smoke test.
 
-## Alpine Enhancements
+## Lineage utilities
 
-Two curated Alpine subprojects enrich the system while keeping the footprint small:
-
-- `for-codex-alpine-apk-tools` provides a patched `apk` built by `build_apk_tools.sh`, enabling package installs without heavy dependencies.
-- `for-codex-alpine-conf` supplies lightweight setup scripts; non-essential modules are pruned so the kernel remains CPU-only and minimal.
-
-Together they broaden userland capabilities without introducing GPU requirements.
-
-During the build, a curated subset of Alpine's setup utilities is installed (`setup-alpine`, `setup-hostname`, `setup-interfaces`, `setup-keymap`, `setup-timezone`, `setup-user`, `setup-apkrepos`, `setup-dns`). These scripts provide basic system configuration while keeping the kernel CPU-only and the image lightweight.
+The `apk-tools` directory carries a patched `apk` built by `build_apk_tools.sh`, enabling package installs without heavy dependencies.
 
 ## Checksum verification
 
@@ -51,23 +44,18 @@ echo "<sha256>  <file>" | sha256sum -c -
 The current release embeds the following official values:
 
 - `linux-6.6.4.tar.gz`: `43d77b1816942ed010ac5ded8deb8360f0ae9cca3642dc7185898dab31d21396`
-- `alpine-minirootfs-3.19.8-x86_64.tar.gz`: `48230b61c9e22523413e3b90b2287469da1d335a11856e801495a896fd955922`
+- `arianna_core_root-3.19.8-x86_64.tar.gz`: `48230b61c9e22523413e3b90b2287469da1d335a11856e801495a896fd955922`
 
 If a checksum mismatch occurs the build aborts immediately.
 
-## Vendored Alpine utilities
+## Vendored components
 
-Two directories track minimal forks of Alpine Linux components:
+The `apk-tools/` directory carries a pared-down copy of `apk-tools`.
+`build/build_apk_tools.sh` compiles this tree and `build/build_ariannacore.sh`
+stages the resulting `apk` binary into `arianna_core_root` to install
+packages without network access.
 
-- `for-codex-alpine-apk-tools/` carries a pared-down copy of `apk-tools`.
-  `build/build_apk_tools.sh` compiles this tree and `build/build_ariannacore.sh`
-  stages the resulting `apk` binary into `arianna_core_root` to install
-  packages without network access.
-- `for-codex-alpine-conf/` contains the `alpine-conf` setup scripts with
-  optional helpers removed.  Run `make -C for-codex-alpine-conf` before the
-  main build if these utilities should be included in the initramfs.
-
-Keeping these components local aligns with the CPU-only, minimalistic design:
+Keeping this component local aligns with the CPU-only, minimalistic design:
 the build remains self-contained, avoids heavy dependencies and produces a
 small userland that boots on generic hardware.
 
