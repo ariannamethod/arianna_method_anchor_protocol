@@ -1,0 +1,187 @@
+#!/usr/bin/env atf-sh
+
+. $(atf_get_srcdir)/test_env.sh
+init_tests \
+	setup_user_usage \
+	setup_user_none \
+	setup_user_fullname \
+	setup_user_interactive_no \
+	setup_user_interactive \
+	setup_user_interactive_fullname \
+	setup_user_interactive_fullname_existing \
+	setup_user_interactive_singlename \
+	setup_user_interactive_suggest_ssh \
+	setup_user_groups_commas \
+	setup_user_groups_spaces \
+	setup_user_admin \
+	setup_user_keys_opt \
+	setup_user_unlock
+
+setup_user_usage_body() {
+	test_usage setup-user
+}
+
+setup_user_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"adduser -D testuser" \
+		-e empty \
+		setup-user testuser
+}
+
+setup_user_none_body () {
+	init_env
+	atf_check -s exit:0 \
+		-o empty \
+		-e empty \
+		setup-user none
+}
+
+setup_user_fullname_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"adduser.* -D .*testuser" \
+		-o match:"adduser.* -g Joe User .*testuser" \
+		-e empty \
+		setup-user -f "Joe User" testuser
+}
+
+setup_user_interactive_no_body() {
+	init_env
+	echo "no" >answers
+	atf_check -s exit:0 \
+		-o match:"Setup a user" \
+		-o not-match:"adduser.*" \
+		-e empty \
+		setup-user <answers
+}
+
+setup_user_interactive_body() {
+	init_env
+	(
+		echo "testuser"
+		echo "Joe User"
+		echo "none"
+	) >answers
+	atf_check -s exit:0 \
+		-o match:"Setup a user" \
+		-o match:"Full name for user testuser" \
+		-o match:"adduser.* -g Joe User .*testuser" \
+		-o match:"passwd testuser" \
+		-e empty \
+		setup-user <answers
+}
+
+setup_user_interactive_fullname_body() {
+	init_env
+	echo "" >answers
+	atf_check -s exit:0 \
+		-o match:"Setup a user.*\[juser\]" \
+		-o not-match:"Full name for user juser" \
+		-o match:"passwd" \
+		-o match:"adduser.* -g Joe User .*juser" \
+		-e empty \
+		setup-user -f "Joe User" -k none <answers
+}
+
+setup_user_interactive_fullname_existing_body() {
+	init_env
+	(
+		echo "existinguser"
+		echo "testuser"
+	) >answers
+	ADDUSER_EXIST=existinguser atf_check -s exit:0 \
+		-o match:"Setup a user.*\[existinguser\]" \
+		-o match:"Setup a user.*\) adduser" \
+		-o match:"adduser.* -g existinguser .*testuser" \
+		-e match:"adduser: user 'existinguser' in use" \
+		setup-user -f "existinguser" -k none <answers
+}
+
+setup_user_interactive_singlename_body() {
+	init_env
+	echo "" >answers
+	atf_check -s exit:0 \
+		-o match:"Setup a user.*\[joe\]" \
+		-o not-match:"Full name for user" \
+		-o match:"passwd joe" \
+		-o match:"adduser.* -g Joe .*joe" \
+		-e empty \
+		setup-user -f "Joe" -k none <answers
+}
+
+setup_user_interactive_suggest_ssh_body() {
+	init_env
+	(	echo "testuser"
+		echo "FullName"
+		echo "al"
+		echo ""
+	)>answers
+	export WGETCONTENT='ssh-id from alpine'
+	atf_check -s exit:0 \
+		-o match:"Setup a user" \
+		-o match:"Full name for user" \
+		-o match:"Enter ssh key.*none" \
+		-o match:"Enter ssh key.*gitlab.alpinelinux.org.*testuser.keys" \
+		-o match:"adduser.* -g FullName .*testuser" \
+		-e empty \
+		setup-user <answers
+	grep -x "$WGETCONTENT" home/testuser/.ssh/authorized_keys \
+		|| atf_fail "ssh key not fetched from alpinelinux"
+	atf_check -o match:"^700$" \
+		stat -c "%a" home/testuser/.ssh
+	atf_check -o match:"^600$" \
+		stat -c "%a" home/testuser/.ssh/authorized_keys
+}
+
+setup_user_groups_commas_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"addgroup testuser wheel" \
+		-o match:"addgroup testuser audio" \
+		-o match:"addgroup testuser video" \
+		-e empty \
+		setup-user -g wheel,audio,video testuser
+}
+
+setup_user_groups_spaces_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"addgroup testuser wheel" \
+		-o match:"addgroup testuser audio" \
+		-o match:"addgroup testuser video" \
+		-e empty \
+		setup-user -g "wheel audio video" testuser
+}
+
+setup_user_admin_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"addgroup testuser wheel" \
+		-e empty \
+		setup-user -a testuser
+		grep wheel etc/doas.d/20-wheel.conf
+
+}
+
+setup_user_keys_opt_body() {
+	init_env
+	export WGETCONTENT='ssh-id from alpine'
+	atf_check -s exit:0 \
+		-o match:"adduser.* -D .*testuser" \
+		setup-user -k https://gitlab.alpinelinux.org/user.keys testuser
+	grep -x  "$WGETCONTENT" home/testuser/.ssh/authorized_keys \
+		|| atf_fail "ssh key not fetched from alpinelinux"
+	atf_check -o match:"^700$" \
+		stat -c "%a" home/testuser/.ssh
+	atf_check -o match:"^600$" \
+		stat -c "%a" home/testuser/.ssh/authorized_keys
+}
+
+setup_user_unlock_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"passwd -u testuser" \
+		-e empty \
+		setup-user -u testuser
+}

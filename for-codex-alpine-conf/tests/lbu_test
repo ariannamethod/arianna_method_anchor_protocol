@@ -1,0 +1,221 @@
+#!/usr/bin/env atf-sh
+
+. $(atf_get_srcdir)/test_env.sh
+init_tests \
+	lbu_usage \
+	lbu_include_usage \
+	lbu_inc_usage \
+	lbu_add_usage \
+	lbu_add_delete \
+	lbu_commit_usage \
+	lbu_ci_usage \
+	lbu_exclude_usage \
+	lbu_ex_usage \
+	lbu_delete_usage \
+	lbu_diff_usage \
+	lbu_list_usage \
+	lbu_ls_usage \
+	lbu_list_backup_usage \
+	lbu_lb_usage \
+	lbu_package_usage \
+	lbu_pkg_usage \
+	lbu_revert_usage \
+	lbu_status_usage \
+	lbu_stat_usage \
+	lbu_st_usage \
+	lbu_package \
+	lbu_package_encrypted \
+	lbu_package_pre_post_hooks
+
+lbu_usage_body() {
+	test_usage lbu
+}
+
+lbu_include_usage_body() {
+	test_usage "lbu include"
+}
+
+lbu_inc_usage_body() {
+	test_usage "lbu inc"
+}
+
+lbu_add_usage_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"usage: lbu include" \
+		-e empty \
+		lbu add -h
+}
+
+lbu_add_delete_body() {
+	init_env
+	mkdir -p root/.ssh
+	atf_check -s exit:0 \
+		-o match:"Adding root/.ssh to" \
+		-e empty \
+		lbu add -v root/.ssh
+
+	atf_check -s exit:0 \
+		-o match:"root/.ssh" \
+		cat etc/apk/protected_paths.d/lbu.list
+
+	atf_check -s exit:0 \
+		-o match:"Removing root/.ssh from" \
+		-e empty \
+		lbu delete -v root/.ssh
+
+	grep 'root/.ssh' etc/apk/protected_paths.d/lbu.list \
+		|| atf_fail "root/.ssh was not removed"
+}
+
+lbu_commit_usage_body() {
+	test_usage "lbu commit"
+}
+
+lbu_ci_usage_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"usage: lbu commit" \
+		-e empty \
+		lbu ci -h
+}
+
+lbu_exclude_usage_body() {
+	test_usage "lbu exclude"
+}
+
+lbu_ex_usage_body() {
+	test_usage "lbu ex"
+}
+
+lbu_delete_usage_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"usage: lbu exclude" \
+		-e empty \
+		lbu delete -h
+}
+
+lbu_diff_usage_body() {
+	test_usage "lbu diff"
+}
+
+lbu_list_usage_body() {
+	test_usage "lbu list"
+}
+
+lbu_ls_usage_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"usage: lbu list" \
+		-e empty \
+		lbu ls -h
+}
+
+lbu_list_backup_usage_body() {
+	test_usage "lbu list-backup"
+}
+
+lbu_lb_usage_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"usage: lbu list-backup" \
+		-e empty \
+		lbu lb -h
+}
+
+lbu_package_usage_body() {
+	test_usage "lbu package"
+}
+
+lbu_pkg_usage_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"usage: lbu package" \
+		-e empty \
+		lbu pkg -h
+}
+
+lbu_revert_usage_body() {
+	test_usage "lbu revert"
+}
+
+lbu_status_usage_body() {
+	test_usage "lbu status"
+}
+
+lbu_stat_usage_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"usage: lbu status" \
+		-e empty \
+		lbu stat -h
+}
+
+lbu_st_usage_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"usage: lbu status" \
+		-e empty \
+		lbu st -h
+}
+
+lbu_package_body() {
+	init_env
+
+	atf_check \
+		lbu package
+
+	atf_check \
+		-o match:"etc/localtime" \
+		-o match:"etc/hosts" \
+		tar -ztf $(hostname).apkovl.tar.gz
+}
+
+get_sysconfdir() {
+	sysconfdir=$(grep "^sysconfdir=" $(atf_get_srcdir)/../lbu \
+		| cut -d= -f2-)
+	if [ -z "$sysconfdir" ]; then
+		atf_fail "sysconfdir is not set"
+	fi
+}
+
+lbu_package_encrypted_body() {
+	atf_require_prog openssl
+	init_env
+	get_sysconfdir
+	mkdir -p "$PWD"/"$sysconfdir"
+	(
+		echo 'DEFAULT_CIPHER=aes-256-cbc'
+		echo 'ENCRYPTION=$DEFAULT_CIPHER'
+		echo 'PASSWORD=foobar'
+	) > "$PWD/$sysconfdir/lbu.conf"
+
+	atf_check \
+		-e match:"WARNING" \
+		lbu package
+
+	if ! [ -e "$(hostname).apkovl.tar.gz.aes-256-cbc" ]; then
+		atf_fail "ecrypted archive not created"
+	fi
+}
+
+lbu_package_pre_post_hooks_body() {
+	init_env
+	get_sysconfdir
+
+	mkdir -p "$PWD/$sysconfdir/pre-package.d" \
+		"$PWD/$sysconfdir/post-package.d"
+	cat >"$PWD/$sysconfdir/pre-package.d/foo.sh"<<-EOF
+		#!/bin/sh
+		echo \$0
+	EOF
+	chmod +x "$PWD/$sysconfdir/pre-package.d/foo.sh"
+	ln -s ../pre-package.d/foo.sh  \
+		"$PWD/$sysconfdir/post-package.d/foo.sh"
+
+	atf_check \
+		-e match:"pre-package" \
+		-e match:"post-package" \
+		lbu package
+}

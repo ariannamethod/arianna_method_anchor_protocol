@@ -1,0 +1,72 @@
+#!/usr/bin/env atf-sh
+
+. $(atf_get_srcdir)/test_env.sh
+init_tests \
+	setup_ntp_usage \
+	setup_ntp_invalid \
+	setup_ntp_busybox \
+	setup_ntp_chrony \
+	setup_ntp_openntpd \
+	setup_ntp_none \
+	setup_ntp_none_backwards_compat \
+	setup_ntp_interactive_datetime
+
+setup_ntp_usage_body() {
+	test_usage setup-ntp
+}
+
+setup_ntp_invalid_body() {
+	init_env
+	atf_check -s exit:1 \
+		-o empty \
+		-e match:"is not a supported NTP client" \
+		setup-ntp invalid
+}
+
+setup_ntp_busybox_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"service ntpd added" \
+		-o match:"Starting ntpd" \
+		setup-ntp busybox
+}
+
+setup_ntp_chrony_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"service chronyd added" \
+		-o match:"Starting chronyd" \
+		setup-ntp chrony
+}
+
+setup_ntp_openntpd_body() {
+	init_env
+	atf_check -s exit:0 \
+		-o match:"service openntpd added" \
+		-o match:"Starting openntpd" \
+		setup-ntp openntpd
+}
+
+setup_ntp_none_body() {
+	init_env
+	atf_check -s exit:0 \
+		setup-ntp none
+}
+
+setup_ntp_none_backwards_compat_body() {
+	init_env
+	atf_check -s exit:0 \
+		setup-ntp -c none
+}
+
+setup_ntp_interactive_datetime_body() {
+	init_env
+	(
+		echo "2024-05-16 22:28:50"
+		echo busybox
+	) > answers
+	atf_check -s exit:0 \
+		-o match:"date -s 2024-05-16 22:28:50" \
+		-o match:"Which NTP client" \
+		setup-ntp < answers
+}

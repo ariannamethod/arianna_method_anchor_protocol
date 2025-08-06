@@ -1,0 +1,19 @@
+#!/usr/bin/env atf-sh
+
+. $(atf_get_srcdir)/test_env.sh
+init_tests \
+	setup_xen_dom0
+
+setup_xen_dom0_body() {
+	init_env
+	mkdir -p etc/init.d
+	touch etc/init.d/xenstored etc/init.d/xenconsoled
+	atf_check -s exit:0 \
+		-o match:"modprobe xen" \
+		-o match:"Starting xenstored" \
+		-o match:"Starting xenconsoled" \
+		-o not-match:"Starting xenqemu" \
+		-e empty \
+		setup-xen-dom0
+}
+

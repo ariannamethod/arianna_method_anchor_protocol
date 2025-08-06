@@ -1,0 +1,77 @@
+#!/usr/bin/env atf-sh
+
+. $(atf_get_srcdir)/test_env.sh
+init_tests \
+	setup_devd_usage \
+	setup_devd_mdev \
+	setup_devd_mdevd \
+	setup_devd_udev
+
+setup_devd_usage_body() {
+	test_usage setup-devd
+}
+
+init_mdev() {
+	# make sure `rc-service --exist mdev` returns true
+	mkdir -p etc/init.d
+	touch etc/init.d/mdev
+	rc-service mdev start
+	rc-service hwdrivers start
+}
+
+setup_devd_mdev_body() {
+	init_env
+	init_mdev
+	atf_check -s exit:0 \
+		-o match:"apk add.*busybox-mdev-openrc" \
+		-e empty \
+		setup-devd mdev
+}
+
+setup_devd_mdevd_body() {
+	init_env
+	init_mdev
+
+	atf_check -s exit:0 \
+		-o match:"apk add.*mdevd" \
+		-o match:"Starting mdevd" \
+		-e empty \
+		setup-devd mdevd
+
+	atf_check \
+		-o match:"started" \
+		rc-service mdevd status
+
+	atf_check -s exit:3 \
+		-o match:"stopped" \
+		rc-service mdev status
+
+	atf_check -s exit:3 \
+		-o match:"stopped" \
+		rc-service hwdrivers status
+}
+
+setup_devd_udev_body() {
+	init_env
+	init_mdev
+	atf_check -s exit:0 \
+		-o match:"apk add.*eudev" \
+		-o match:"Starting udev" \
+		-o match:"Starting udev-trigger" \
+		-o match:"Starting udev-settle" \
+		-o match:"Starting udev-postmount" \
+		-e empty \
+		setup-devd udev
+
+	atf_check \
+		-o match:"started" \
+		rc-service udev status
+
+	atf_check -s exit:3 \
+		-o match:"stopped" \
+		rc-service mdev status
+
+	atf_check -s exit:3 \
+		-o match:"stopped" \
+		rc-service hwdrivers status
+}
