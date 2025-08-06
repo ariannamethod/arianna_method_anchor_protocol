@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 KERNEL_VERSION="${KERNEL_VERSION:-6.6.4}"
 ACROOT_VERSION="${ACROOT_VERSION:-3.19.0}"
+CURL="curl --retry 3 --retry-delay 5 -fL"
 
 WITH_PY=0
 CLEAN=0
@@ -27,19 +28,11 @@ fi
 mkdir -p "$SCRIPT_DIR/kernel"
 cd "$SCRIPT_DIR/kernel"
 if [ ! -f "linux-${KERNEL_VERSION}.tar.xz" ]; then
-  curl -fLO "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz"  # //: upstream kernel archive
-  expected_sha256=$(curl -fL "https://cdn.kernel.org/pub/linux/kernel/v6.x/sha256sums.asc" | grep " linux-${KERNEL_VERSION}.tar.xz$" | sed -E 's/.*([0-9a-f]{64}).*/\1/')
-  actual_sha256=$(sha256sum "linux-${KERNEL_VERSION}.tar.xz" | awk '{print $1}')
-  if [ "$expected_sha256" != "$actual_sha256" ]; then
-    echo "SHA256 mismatch for kernel archive" >&2
-    exit 1
-  fi
-  expected_sha512=$(curl -fL "https://cdn.kernel.org/pub/linux/kernel/v6.x/sha512sums.asc" | grep " linux-${KERNEL_VERSION}.tar.xz$" | sed -E 's/.*([0-9a-f]{128}).*/\1/')
-  actual_sha512=$(sha512sum "linux-${KERNEL_VERSION}.tar.xz" | awk '{print $1}')
-  if [ "$expected_sha512" != "$actual_sha512" ]; then
-    echo "SHA512 mismatch for kernel archive" >&2
-    exit 1
-  fi
+  $CURL -O "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz"  # //: upstream kernel archive
+  expected_sha256=$($CURL "https://cdn.kernel.org/pub/linux/kernel/v6.x/sha256sums.asc" | grep " linux-${KERNEL_VERSION}.tar.xz$" | sed -E 's/.*([0-9a-f]{64}).*/\1/')
+  echo "${expected_sha256}  linux-${KERNEL_VERSION}.tar.xz" | sha256sum -c - || { echo "SHA256 mismatch for kernel archive" >&2; exit 1; }
+  expected_sha512=$($CURL "https://cdn.kernel.org/pub/linux/kernel/v6.x/sha512sums.asc" | grep " linux-${KERNEL_VERSION}.tar.xz$" | sed -E 's/.*([0-9a-f]{128}).*/\1/')
+  echo "${expected_sha512}  linux-${KERNEL_VERSION}.tar.xz" | sha512sum -c - || { echo "SHA512 mismatch for kernel archive" >&2; exit 1; }
 fi
 
 if [ ! -d "linux-${KERNEL_VERSION}" ]; then
@@ -64,9 +57,9 @@ make modules_install INSTALL_MOD_PATH="$SCRIPT_DIR/acroot"  # //: install to ini
 cd "$SCRIPT_DIR"
 TARBALL="arianna_core_root-${ACROOT_VERSION}-x86_64.tar.gz"
 if [ ! -f "$TARBALL" ]; then
-  curl -fLO "https://dl-cdn.alpinelinux.org/alpine/v${ACROOT_VERSION%.*}/releases/x86_64/alpine-minirootfs-${ACROOT_VERSION}-x86_64.tar.gz"
-  curl -fL "https://dl-cdn.alpinelinux.org/alpine/v${ACROOT_VERSION%.*}/releases/x86_64/alpine-minirootfs-${ACROOT_VERSION}-x86_64.tar.gz.sha256" | sha256sum -c -
-  curl -fL "https://dl-cdn.alpinelinux.org/alpine/v${ACROOT_VERSION%.*}/releases/x86_64/alpine-minirootfs-${ACROOT_VERSION}-x86_64.tar.gz.sha512" | sha512sum -c -
+  $CURL -O "https://dl-cdn.alpinelinux.org/alpine/v${ACROOT_VERSION%.*}/releases/x86_64/alpine-minirootfs-${ACROOT_VERSION}-x86_64.tar.gz"
+  $CURL "https://dl-cdn.alpinelinux.org/alpine/v${ACROOT_VERSION%.*}/releases/x86_64/alpine-minirootfs-${ACROOT_VERSION}-x86_64.tar.gz.sha256" | sha256sum -c - || { echo "SHA256 mismatch for acroot archive" >&2; exit 1; }
+  $CURL "https://dl-cdn.alpinelinux.org/alpine/v${ACROOT_VERSION%.*}/releases/x86_64/alpine-minirootfs-${ACROOT_VERSION}-x86_64.tar.gz.sha512" | sha512sum -c - || { echo "SHA512 mismatch for acroot archive" >&2; exit 1; }
   mv "alpine-minirootfs-${ACROOT_VERSION}-x86_64.tar.gz" "$TARBALL"
 fi
 mkdir -p acroot
