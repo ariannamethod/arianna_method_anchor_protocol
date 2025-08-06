@@ -43,7 +43,8 @@ except importlib_metadata.PackageNotFoundError:
 
 
 # Configuration
-CONFIG_PATH = Path.home() / ".letsgo" / "config"
+DATA_DIR = Path.home() / ".letsgo"
+CONFIG_PATH = DATA_DIR / "config"
 
 
 @dataclass
@@ -89,10 +90,10 @@ def color(text: str, code: str) -> str:
 
 
 # //: each session logs to its own file under a fixed directory
-LOG_DIR = Path("/arianna_core/log")
+LOG_DIR = DATA_DIR / "log"
 SESSION_ID = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
 LOG_PATH = LOG_DIR / f"{SESSION_ID}.log"
-HISTORY_PATH = LOG_DIR / "history"
+HISTORY_PATH = DATA_DIR / "history"
 PY_TIMEOUT = 5
 
 ERROR_LOG_PATH = LOG_DIR / "errors.log"
@@ -363,7 +364,15 @@ async def handle_history(user: str) -> Tuple[str, str | None]:
     return reply, reply
 
 
-async def handle_help(_: str) -> Tuple[str, str | None]:
+async def handle_help(user: str) -> Tuple[str, str | None]:
+    parts = user.split(maxsplit=1)
+    if len(parts) > 1:
+        cmd = parts[1]
+        help_text = COMMAND_HELP.get(cmd)
+        if help_text:
+            return help_text, help_text
+        reply = f"No help available for {cmd}"
+        return reply, reply
     lines: list[str] = []
     for cmd, (_, desc) in sorted(COMMAND_MAP.items()):
         lines.append(f"{cmd} - {desc}")
@@ -423,6 +432,23 @@ CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
     "/color": (handle_color, "toggle colored output"),
 }
 
+COMMAND_HELP: Dict[str, str] = {
+    "/status": "Usage: /status\nShow basic system metrics.",
+    "/time": "Usage: /time\nDisplay the current UTC time.",
+    "/run": "Usage: /run <command>\nRun a shell command and return its output.",
+    "/py": "Usage: /py <code>\nExecute Python code and print the result.",
+    "/summarize": (
+        "Usage: /summarize [--history] [limit]"
+        "\nSummarize recent log entries or command history."
+    ),
+    "/clear": "Usage: /clear\nClear the terminal screen.",
+    "/history": "Usage: /history [n]\nShow the last n commands.",
+    "/help": "Usage: /help [command]\nList commands or show detailed help.",
+    "/search": "Usage: /search <pattern>\nSearch the command history.",
+    "/ping": "Usage: /ping\nReply with pong.",
+    "/color": "Usage: /color on|off\nEnable or disable colored output.",
+}
+
 COMMAND_HANDLERS: Dict[str, Handler] = {
     cmd: func for cmd, (func, _) in CORE_COMMANDS.items()
 }
@@ -438,6 +464,7 @@ def register_core(commands: List[str], handlers: Dict[str, Handler]) -> None:
 
 async def main() -> None:
     _ensure_log_dir()
+    HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
     try:
         readline.read_history_file(str(HISTORY_PATH))
     except FileNotFoundError:
@@ -446,6 +473,9 @@ async def main() -> None:
     command_summary = " ".join(sorted(COMMAND_HANDLERS))
 
     readline.parse_and_bind("tab: complete")
+    readline.parse_and_bind(r'"\e[A": history-search-backward')
+    readline.parse_and_bind(r'"\e[B": history-search-forward')
+    readline.parse_and_bind(r'"\C-r": reverse-search-history')
 
     def completer(text: str, state: int) -> str | None:
         buffer = readline.get_line_buffer()
