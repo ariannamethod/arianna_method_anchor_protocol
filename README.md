@@ -144,6 +144,12 @@ The /summarize command searches across logs with optional regular expressions an
 
 For quick information retrieval /time prints the current UTC timestamp, while /run <cmd> executes a shell command and returns its output. A /help command lists the available verbs. Use /color on|off to toggle colored output.
 
+### Command Overview
+
+- `/status` – show CPU core count, uptime, and host IP.
+- `/time` – display the current UTC time.
+- `/help` – list available commands.
+
 By default any unrecognised input is echoed back, but the structure is prepared for more advanced NLP pipelines. Hooks can intercept the text and dispatch it to remote models, feeding results back through the same interface.
 
 Logging uses the //: motif in comments and writes both user prompts and letsgo responses. Each line is timestamped with ISO-8601 precision, building a dataset suitable for replay or training.
