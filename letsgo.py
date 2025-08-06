@@ -14,6 +14,25 @@ from pathlib import Path
 from collections import deque
 from typing import Deque, Iterable, List
 
+# ANSI color codes
+GREEN = "\033[32m"
+RED = "\033[31m"
+CYAN = "\033[36m"
+RESET = "\033[0m"
+
+_NO_COLOR_FLAG = "--no-color"
+USE_COLOR = (
+    os.getenv("LETSGO_NO_COLOR") is None
+    and os.getenv("NO_COLOR") is None
+    and _NO_COLOR_FLAG not in sys.argv
+)
+if _NO_COLOR_FLAG in sys.argv:
+    sys.argv.remove(_NO_COLOR_FLAG)
+
+
+def color(text: str, code: str) -> str:
+    return f"{code}{text}{RESET}" if USE_COLOR else text
+
 # //: each session logs to its own file under a fixed directory
 LOG_DIR = Path("/arianna_core/log")
 SESSION_ID = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -87,7 +106,8 @@ def run_command(command: str) -> str:
         )
         return result.stdout.strip()
     except subprocess.CalledProcessError as exc:
-        return exc.stdout.strip() if exc.stdout else str(exc)
+        output = exc.stdout.strip() if exc.stdout else str(exc)
+        return color(output, RED)
 
 
 def _iter_log_lines() -> Iterable[str]:
@@ -128,7 +148,7 @@ def main() -> None:
     print("LetsGo terminal ready. Type 'exit' to quit.")
     while True:
         try:
-            user = input(">> ")
+            user = input(color(">> ", CYAN))
         except EOFError:
             break
         if user.strip().lower() in {"exit", "quit"}:
@@ -136,15 +156,19 @@ def main() -> None:
         log(f"user:{user}")
         if user.strip() == "/status":
             reply = status()
+            colored = color(reply, GREEN)
         elif user.strip() == "/time":
             reply = current_time()
+            colored = reply
         elif user.startswith("/run "):
             reply = run_command(user.partition(" ")[2])
+            colored = reply
         elif user.strip() == "/help":
             reply = (
                 "Commands: /status, /time, /run <cmd>, "
                 "/summarize [term [limit]]"
             )
+            colored = reply
         elif user.startswith("/summarize"):
             parts = user.split()[1:]
             limit = 5
@@ -153,9 +177,11 @@ def main() -> None:
                 parts = parts[:-1]
             term = " ".join(parts) if parts else None
             reply = summarize(term, limit)
+            colored = reply
         else:
             reply = f"echo: {user}"
-        print(reply)
+            colored = reply
+        print(colored)
         log(f"letsgo:{reply}")
     log("session_end")
 
