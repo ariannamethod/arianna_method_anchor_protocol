@@ -18,6 +18,8 @@ jobs:
       - name: Build kernel, initramfs and boot test (CPU-only)
         run: |
           ./build/build_ariannacore.sh --clean --test-qemu
+      - name: Build alpine-conf scripts
+        run: make -C for-codex-alpine-conf
       - name: Run tests
         run: |
           python -m pip install --upgrade pip
