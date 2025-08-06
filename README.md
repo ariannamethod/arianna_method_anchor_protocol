@@ -135,13 +135,13 @@ Other interfaces—serial TTYs, named pipes or custom RPC schemes—remain feasi
 
 The terminal is invoked after login and serves as the primary shell for Arianna Core. Each session creates a fresh log in `/arianna_core/log/`, stamped with UTC time, ensuring chronological reconstruction of interactions. A `max_log_files` option in `~/.letsgo/config` limits how many of these log files are kept on disk.
 
-Command history is persisted to `/arianna_core/log/history`. Existing entries load at startup and are written back on exit. Tab completion, powered by `readline`, suggests built-in verbs like `/status`, `/time`, `/run`, `/summarize`, `/search`, and `/help`.
+Command history is persisted to `/arianna_core/log/history`. Existing entries load at startup and are written back on exit. Tab completion, powered by `readline`, suggests built-in verbs like `/status`, `/time`, `/run`, `/summarize`, `/search`, `/color`, and `/help`.
 
 A `/status` command reports CPU core count, raw uptime seconds read from `/proc/uptime`, and the current host IP. This offers an at-a-glance check that the minimal environment is healthy.
 
 The `/summarize` command searches across logs with optional regular expressions and prints the last five matches; adding `--history` switches the search to the command history. `/search <pattern>` prints every history line matching the given regex.
 
-For quick information retrieval `/time` prints the current UTC timestamp, while `/run <cmd>` executes a shell command and returns its output. A `/help` command lists the available verbs.
+For quick information retrieval `/time` prints the current UTC timestamp, while `/run <cmd>` executes a shell command and returns its output. A `/help` command lists the available verbs. Use `/color on|off` to toggle colored output.
 
 By default any unrecognised input is echoed back, but the structure is prepared for more advanced NLP pipelines. Hooks can intercept the text and dispatch it to remote models, feeding results back through the same interface.
 
