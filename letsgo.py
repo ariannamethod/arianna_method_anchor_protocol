@@ -95,6 +95,8 @@ LOG_PATH = LOG_DIR / f"{SESSION_ID}.log"
 HISTORY_PATH = LOG_DIR / "history"
 PY_TIMEOUT = 5
 
+ERROR_LOG_PATH = LOG_DIR / "errors.log"
+
 Handler = Callable[[str], Awaitable[Tuple[str, str | None]]]
 
 
@@ -120,6 +122,11 @@ def _ensure_log_dir() -> None:
 
 def log(message: str) -> None:
     with LOG_PATH.open("a") as fh:
+        fh.write(f"{datetime.utcnow().isoformat()} {message}\n")
+
+
+def log_error(message: str) -> None:
+    with ERROR_LOG_PATH.open("a") as fh:
         fh.write(f"{datetime.utcnow().isoformat()} {message}\n")
 
 
@@ -160,31 +167,26 @@ async def async_input(prompt: str) -> str:
 async def run_command(
     command: str,
     on_line: Callable[[str], None] | None = None,
-    timeout: int = 10,
-) -> str:
-    """Execute ``command`` and return its output.
+    timeout: int = SETTINGS.command_timeout,
+) -> Tuple[str, int, float]:
+    """Execute ``command`` and return its output, exit code and duration."""
 
-    If ``on_line`` is provided, it is called with each line of output as it
-    becomes available. A timeout is enforced and any error output is colored
-    red.
-    """
+    loop = asyncio.get_running_loop()
+    start = loop.time()
     try:
-        if on_line:
-            on_line("...running")
         proc = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
         output_lines: list[str] = []
-        loop = asyncio.get_running_loop()
-        start = loop.time()
         while True:
             remaining = timeout - (loop.time() - start)
             if remaining <= 0:
                 proc.kill()
                 await proc.communicate()
-                return color("command timed out", SETTINGS.red)
+                duration = loop.time() - start
+                return "command timed out", 124, duration
             try:
                 line = await asyncio.wait_for(
                     proc.stdout.readline(),
@@ -193,7 +195,8 @@ async def run_command(
             except asyncio.TimeoutError:
                 proc.kill()
                 await proc.communicate()
-                return color("command timed out", SETTINGS.red)
+                duration = loop.time() - start
+                return "command timed out", 124, duration
             if not line:
                 break
             decoded = line.decode().rstrip()
@@ -201,12 +204,12 @@ async def run_command(
             if on_line:
                 on_line(decoded)
         rc = await proc.wait()
+        duration = loop.time() - start
         output = "\n".join(output_lines).strip()
-        if rc != 0:
-            return color(output, SETTINGS.red)
-        return output
+        return output, rc, duration
     except Exception as exc:
-        return color(str(exc), SETTINGS.red)
+        duration = loop.time() - start
+        return str(exc), 1, duration
 
 
 def clear_screen() -> str:
@@ -300,17 +303,21 @@ async def handle_time(_: str) -> Tuple[str, str | None]:
 
 async def handle_run(user: str) -> Tuple[str, str | None]:
     command = user.partition(" ")[2]
-    lines: list[str] = []
-
-    def _cb(line: str) -> None:
-        lines.append(line)
-        print(line)
-
-    reply = await run_command(command, _cb, SETTINGS.command_timeout)
-    combined = "\n".join(lines).strip()
-    colored = reply if reply != combined else None
-    reply = reply if colored else combined
-    return reply, colored
+    print("выполняется...")
+    output, rc, duration = await run_command(command)
+    if output:
+        if rc != 0:
+            print(color(output, SETTINGS.red))
+        else:
+            print(output)
+    status = f"код возврата: {rc}, длительность: {duration:.2f}s"
+    if rc != 0:
+        print(color(status, SETTINGS.red))
+        log_error(f"{command} | {status} | {output}")
+    else:
+        print(color(status, SETTINGS.green))
+    reply = "\n".join(filter(None, [output, status]))
+    return reply, None
 
 
 async def handle_py(user: str) -> Tuple[str, str | None]:

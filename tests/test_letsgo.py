@@ -44,12 +44,14 @@ def test_current_time_format():
 
 
 def test_run_command():
-    output = asyncio.run(letsgo.run_command("echo hello"))
+    output, rc, duration = asyncio.run(letsgo.run_command("echo hello"))
     assert output.strip() == "hello"
+    assert rc == 0
+    assert duration >= 0
 
 
 def test_run_command_mock(monkeypatch):
-    """Ensure run_command handles async subprocesses and emits indicator."""
+    """Ensure run_command handles async subprocesses."""
 
     class DummyProcess:
         def __init__(self):
@@ -78,9 +80,10 @@ def test_run_command_mock(monkeypatch):
     def _cb(line: str) -> None:
         lines.append(line)
 
-    output = asyncio.run(letsgo.run_command("whatever", _cb))
+    output, rc, duration = asyncio.run(letsgo.run_command("whatever", _cb))
     assert output == "done"
-    assert lines == ["...running", "done"]
+    assert rc == 0
+    assert lines == ["done"]
 
 
 def test_clear_screen_returns_sequence():
