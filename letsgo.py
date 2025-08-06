@@ -9,10 +9,11 @@ import subprocess
 import sys
 import readline
 import atexit
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from collections import deque
-from typing import Deque, Iterable, List
+from typing import Callable, Deque, Iterable, List
 from dataclasses import dataclass
 import re
 
@@ -143,22 +144,49 @@ def current_time() -> str:
     return datetime.utcnow().isoformat()
 
 
-def run_command(command: str) -> str:
-    """Execute a shell command and return its output."""
+async def run_command(
+    command: str, on_line: Callable[[str], None] | None = None
+) -> str:
+    """Execute ``command`` and return its output.
+
+    If ``on_line`` is provided, it is called with each line of output as it
+    becomes available. A 10‑second timeout is enforced and any error output is
+    colored red.
+    """
     try:
-        result = subprocess.run(
+        proc = await asyncio.create_subprocess_shell(
             command,
-            shell=True,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=10,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
         )
-        return result.stdout.strip()
-    except subprocess.CalledProcessError as exc:
-        output = exc.stdout.strip() if exc.stdout else str(exc)
-        return color(output, SETTINGS.red)
+        output_lines: list[str] = []
+        loop = asyncio.get_running_loop()
+        start = loop.time()
+        while True:
+            remaining = 10 - (loop.time() - start)
+            if remaining <= 0:
+                proc.kill()
+                await proc.communicate()
+                return color("command timed out", SETTINGS.red)
+            try:
+                line = await asyncio.wait_for(proc.stdout.readline(), timeout=remaining)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.communicate()
+                return color("command timed out", SETTINGS.red)
+            if not line:
+                break
+            decoded = line.decode().rstrip()
+            output_lines.append(decoded)
+            if on_line:
+                on_line(decoded)
+        rc = await proc.wait()
+        output = "\n".join(output_lines).strip()
+        if rc != 0:
+            return color(output, SETTINGS.red)
+        return output
+    except Exception as exc:
+        return color(str(exc), SETTINGS.red)
 
 
 def clear_screen() -> str:
@@ -231,7 +259,7 @@ def search_history(pattern: str) -> str:
     return "\n".join(matches) if matches else "no matches"
 
 
-def main() -> None:
+async def main() -> None:
     _ensure_log_dir()
     try:
         readline.read_history_file(str(HISTORY_PATH))
@@ -250,7 +278,9 @@ def main() -> None:
     print("LetsGo terminal ready. Type 'exit' to quit.")
     while True:
         try:
-            user = input(color(SETTINGS.prompt, SETTINGS.cyan))
+            user = await asyncio.to_thread(
+                input, color(SETTINGS.prompt, SETTINGS.cyan)
+            )
         except EOFError:
             break
         if user.strip().lower() in {"exit", "quit"}:
@@ -263,8 +293,15 @@ def main() -> None:
             reply = current_time()
             colored = reply
         elif user.startswith("/run "):
-            reply = run_command(user.partition(" ")[2])
-            colored = reply
+            lines: list[str] = []
+            def _cb(line: str) -> None:
+                lines.append(line)
+                print(line)
+
+            reply = await run_command(user.partition(" ")[2], _cb)
+            combined = "\n".join(lines).strip()
+            colored = reply if reply != combined else None
+            reply = reply if colored else combined
         elif user.strip() == "/clear":
             reply = clear_screen()
             colored = reply
@@ -305,10 +342,11 @@ def main() -> None:
         else:
             reply = f"echo: {user}"
             colored = reply
-        print(colored)
+        if colored is not None:
+            print(colored)
         log(f"letsgo:{reply}")
     log("session_end")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
