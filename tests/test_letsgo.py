@@ -11,6 +11,7 @@ import letsgo  # noqa: E402
 
 # Helper to create log files
 
+
 def _write_log(log_dir: Path, name: str, lines: list[str]):
     path = log_dir / f"{name}.log"
     with path.open("w") as fh:
@@ -77,7 +78,9 @@ def test_run_command_mock(monkeypatch):
     async def fake_create_subprocess_shell(cmd, stdout=None, stderr=None):
         return DummyProcess()
 
-    monkeypatch.setattr(asyncio, "create_subprocess_shell", fake_create_subprocess_shell)
+    monkeypatch.setattr(
+        asyncio, "create_subprocess_shell", fake_create_subprocess_shell
+    )
 
     lines: list[str] = []
 
