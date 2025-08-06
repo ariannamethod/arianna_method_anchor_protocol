@@ -156,3 +156,28 @@ def test_help_lists_command_descriptions():
     assert "clear the terminal screen" in output
     assert "/history" in output
     assert "show command history" in output
+
+
+def test_handle_py_executes_code():
+    output, colored = asyncio.run(letsgo.handle_py("/py print('hi')"))
+    assert output == "hi"
+    assert colored == "hi"
+
+
+def test_handle_py_returns_errors():
+    output, colored = asyncio.run(letsgo.handle_py("/py 1/0"))
+    assert "ZeroDivisionError" in output
+    if letsgo.USE_COLOR:
+        assert colored.startswith("\033[31m")
+    else:
+        assert colored is not None
+
+
+def test_handle_py_timeout(monkeypatch):
+    monkeypatch.setattr(letsgo, "PY_TIMEOUT", 0.1)
+    output, colored = asyncio.run(letsgo.handle_py("/py import time; time.sleep(1)"))
+    assert "timed out" in output
+    if letsgo.USE_COLOR:
+        assert colored.startswith("\033[31m")
+    else:
+        assert colored is not None
