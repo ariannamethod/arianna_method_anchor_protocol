@@ -32,7 +32,7 @@ Other interfaces—serial TTYs, named pipes or custom RPC schemes—remain feasi
 
 ## assistant.py
 
-The assistant is invoked after login and serves as the primary shell for Arianna Core. Each session creates a fresh log in `log/`, stamped with UTC time, ensuring chronological reconstruction of interactions.
+The assistant is invoked after login and serves as the primary shell for Arianna Core. Each session creates a fresh log in `/arianna_core/log/`, stamped with UTC time, ensuring chronological reconstruction of interactions.
 
 A `/status` command reports CPU core count, raw uptime seconds read from `/proc/uptime`, and the current host IP. This offers an at-a-glance check that the minimal environment is healthy.
 

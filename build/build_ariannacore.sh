@@ -8,6 +8,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 KERNEL_VERSION="${KERNEL_VERSION:-6.6.4}"
 ACROOT_VERSION="${ACROOT_VERSION:-3.19.0}"
 CURL="curl --retry 3 --retry-delay 5 -fL"
+LOG_DIR="/arianna_core/log"
 
 WITH_PY=0
 CLEAN=0
@@ -80,7 +81,7 @@ apk --root acroot --repositories-file /etc/apk/repositories add --no-cache $PKGS
 install -Dm755 "$ROOT_DIR/assistant.py" acroot/usr/bin/assistant
 install -Dm755 "$ROOT_DIR/cmd/startup.py" acroot/usr/bin/startup
 ln -sf /usr/bin/startup acroot/init
-mkdir -p acroot/arianna_core/log
+mkdir -p "acroot${LOG_DIR}"
 echo "Hey there, welcome to Arianna Method Linux Terminal" > acroot/etc/motd
 
 # //: create initramfs image
