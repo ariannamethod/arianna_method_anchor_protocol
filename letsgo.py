@@ -13,12 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from collections import deque
 from typing import Deque, Iterable, List
-
-# ANSI color codes
-GREEN = "\033[32m"
-RED = "\033[31m"
-CYAN = "\033[36m"
-RESET = "\033[0m"
+from dataclasses import dataclass
 
 _NO_COLOR_FLAG = "--no-color"
 USE_COLOR = (
@@ -30,8 +25,43 @@ if _NO_COLOR_FLAG in sys.argv:
     sys.argv.remove(_NO_COLOR_FLAG)
 
 
+# Configuration
+CONFIG_PATH = Path.home() / ".letsgo" / "config"
+
+
+@dataclass
+class Settings:
+    prompt: str = ">> "
+    green: str = "\033[32m"
+    red: str = "\033[31m"
+    cyan: str = "\033[36m"
+    reset: str = "\033[0m"
+
+
+def _load_settings(path: Path = CONFIG_PATH) -> Settings:
+    settings = Settings()
+    try:
+        with path.open() as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = map(str.strip, line.split("=", 1))
+                value = value.strip("\"'")
+                value = bytes(value, "utf-8").decode("unicode_escape")
+                if hasattr(settings, key):
+                    setattr(settings, key, value)
+    except FileNotFoundError:
+        pass
+    return settings
+
+
+SETTINGS = _load_settings()
+
+
 def color(text: str, code: str) -> str:
-    return f"{code}{text}{RESET}" if USE_COLOR else text
+    return f"{code}{text}{SETTINGS.reset}" if USE_COLOR else text
+
 
 # //: each session logs to its own file under a fixed directory
 LOG_DIR = Path("/arianna_core/log")
@@ -59,8 +89,6 @@ def _ensure_log_dir() -> None:
 def log(message: str) -> None:
     with LOG_PATH.open("a") as fh:
         fh.write(f"{datetime.utcnow().isoformat()} {message}\n")
-
-
 
 
 def _first_ip() -> str:
@@ -107,7 +135,7 @@ def run_command(command: str) -> str:
         return result.stdout.strip()
     except subprocess.CalledProcessError as exc:
         output = exc.stdout.strip() if exc.stdout else str(exc)
-        return color(output, RED)
+        return color(output, SETTINGS.red)
 
 
 def _iter_log_lines() -> Iterable[str]:
@@ -148,7 +176,7 @@ def main() -> None:
     print("LetsGo terminal ready. Type 'exit' to quit.")
     while True:
         try:
-            user = input(color(">> ", CYAN))
+            user = input(color(SETTINGS.prompt, SETTINGS.cyan))
         except EOFError:
             break
         if user.strip().lower() in {"exit", "quit"}:
@@ -156,7 +184,7 @@ def main() -> None:
         log(f"user:{user}")
         if user.strip() == "/status":
             reply = status()
-            colored = color(reply, GREEN)
+            colored = color(reply, SETTINGS.green)
         elif user.strip() == "/time":
             reply = current_time()
             colored = reply
@@ -166,7 +194,8 @@ def main() -> None:
         elif user.strip() == "/help":
             reply = (
                 "Commands: /status, /time, /run <cmd>, "
-                "/summarize [term [limit]]"
+                "/summarize [term [limit]]\n"
+                "Config: ~/.letsgo/config for prompt and colors"
             )
             colored = reply
         elif user.startswith("/summarize"):
