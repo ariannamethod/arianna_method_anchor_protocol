@@ -55,6 +55,22 @@ The current release embeds the following official values:
 
 If a checksum mismatch occurs the build aborts immediately.
 
+## Vendored Alpine utilities
+
+Two directories track minimal forks of Alpine Linux components:
+
+- `for-codex-alpine-apk-tools/` carries a pared-down copy of `apk-tools`.
+  `build/build_apk_tools.sh` compiles this tree and `build/build_ariannacore.sh`
+  stages the resulting `apk` binary into `arianna_core_root` to install
+  packages without network access.
+- `for-codex-alpine-conf/` contains the `alpine-conf` setup scripts with
+  optional helpers removed.  Run `make -C for-codex-alpine-conf` before the
+  main build if these utilities should be included in the initramfs.
+
+Keeping these components local aligns with the CPU-only, minimalistic design:
+the build remains self-contained, avoids heavy dependencies and produces a
+small userland that boots on generic hardware.
+
 ## Running in QEMU
 
 A minimal invocation uses the `arianna-core.img` created during the build. QEMU can operate in headless mode:
