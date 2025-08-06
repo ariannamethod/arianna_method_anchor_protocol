@@ -53,3 +53,20 @@ def test_current_time_format():
 def test_run_command():
     output = letsgo.run_command("echo hello")
     assert output.strip() == "hello"
+
+
+def test_clear_screen_returns_sequence():
+    assert letsgo.clear_screen() == "\033c"
+
+
+def test_history_last_n(tmp_path, monkeypatch):
+    hist = tmp_path / "history"
+    hist.write_text("\n".join(str(i) for i in range(30)))
+    monkeypatch.setattr(letsgo, "HISTORY_PATH", hist)
+    assert letsgo.history().splitlines() == [str(i) for i in range(10, 30)]
+    assert letsgo.history(5).splitlines() == [str(i) for i in range(25, 30)]
+
+
+def test_history_no_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(letsgo, "HISTORY_PATH", tmp_path / "missing")
+    assert letsgo.history() == "no history"
