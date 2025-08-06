@@ -14,6 +14,7 @@ from pathlib import Path
 from collections import deque
 from typing import Deque, Iterable, List
 from dataclasses import dataclass
+import re
 
 _NO_COLOR_FLAG = "--no-color"
 USE_COLOR = (
@@ -36,6 +37,7 @@ class Settings:
     red: str = "\033[31m"
     cyan: str = "\033[36m"
     reset: str = "\033[0m"
+    max_log_files: int = 100
 
 
 def _load_settings(path: Path = CONFIG_PATH) -> Settings:
@@ -50,6 +52,12 @@ def _load_settings(path: Path = CONFIG_PATH) -> Settings:
                 value = value.strip("\"'")
                 value = bytes(value, "utf-8").decode("unicode_escape")
                 if hasattr(settings, key):
+                    attr = getattr(settings, key)
+                    if isinstance(attr, int):
+                        try:
+                            value = int(value)
+                        except ValueError:
+                            continue
                     setattr(settings, key, value)
     except FileNotFoundError:
         pass
@@ -77,6 +85,7 @@ COMMANDS: List[str] = [
     "/clear",
     "/history",
     "/help",
+    "/search",
 ]
 
 
@@ -86,6 +95,18 @@ def _ensure_log_dir() -> None:
     if not os.access(LOG_DIR, os.W_OK):
         print(f"No write permission for {LOG_DIR}", file=sys.stderr)
         raise SystemExit(1)
+    max_files = getattr(SETTINGS, "max_log_files", 0)
+    if max_files > 0:
+        logs = sorted(
+            LOG_DIR.glob("*.log"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        for old in logs[max_files:]:
+            try:
+                old.unlink()
+            except OSError:
+                pass
 
 
 def log(message: str) -> None:
@@ -163,14 +184,50 @@ def _iter_log_lines() -> Iterable[str]:
                 yield line.rstrip("\n")
 
 
-def summarize(term: str | None = None, limit: int = 5) -> str:
-    """Return the last ``limit`` log lines matching ``term``."""
-    if not LOG_DIR.exists():
-        return "no logs"
+def summarize(
+    term: str | None = None,
+    limit: int = 5,
+    history: bool = False,
+) -> str:
+    """Return the last ``limit`` lines matching ``term``.
+
+    If ``history`` is True, search command history instead of log files.
+    ``term`` is treated as a regular expression.
+    """
+    if history:
+        try:
+            with HISTORY_PATH.open() as fh:
+                iterable = (line.rstrip("\n") for line in fh)
+                lines = list(iterable)
+        except FileNotFoundError:
+            return "no history"
+    else:
+        if not LOG_DIR.exists():
+            return "no logs"
+        lines = list(_iter_log_lines())
+    try:
+        pattern = re.compile(term) if term else None
+    except re.error:
+        return "invalid pattern"
     matches: Deque[str] = deque(maxlen=limit)
-    for line in _iter_log_lines():
-        if term is None or term in line:
+    for line in lines:
+        if pattern is None or pattern.search(line):
             matches.append(line)
+    return "\n".join(matches) if matches else "no matches"
+
+
+def search_history(pattern: str) -> str:
+    """Return all history lines matching ``pattern`` as regex."""
+    try:
+        with HISTORY_PATH.open() as fh:
+            lines = [line.rstrip("\n") for line in fh]
+    except FileNotFoundError:
+        return "no history"
+    try:
+        regex = re.compile(pattern)
+    except re.error:
+        return "invalid pattern"
+    matches = [line for line in lines if regex.search(line)]
     return "\n".join(matches) if matches else "no matches"
 
 
@@ -213,24 +270,37 @@ def main() -> None:
             colored = reply
         elif user.startswith("/history"):
             parts = user.split()
-            limit = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 20
+            limit = (
+                int(parts[1])
+                if len(parts) > 1 and parts[1].isdigit()
+                else 20
+            )
             reply = history(limit)
             colored = reply
         elif user.strip() == "/help":
             reply = (
-                "Commands: /status, /time, /run <cmd>, /summarize [term [limit]], "
-                "/clear, /history [N]\n"
-                "Config: ~/.letsgo/config for prompt and colors"
+                "Commands: /status, /time, /run <cmd>, "
+                "/summarize [term [limit]] [--history], "
+                "/clear, /history [N], /search <pattern>\n"
+                "Config: ~/.letsgo/config for prompt, colors, max_log_files"
             )
             colored = reply
         elif user.startswith("/summarize"):
             parts = user.split()[1:]
+            history_mode = False
+            if "--history" in parts:
+                parts.remove("--history")
+                history_mode = True
             limit = 5
             if parts and parts[-1].isdigit():
                 limit = int(parts[-1])
                 parts = parts[:-1]
             term = " ".join(parts) if parts else None
-            reply = summarize(term, limit)
+            reply = summarize(term, limit, history=history_mode)
+            colored = reply
+        elif user.startswith("/search "):
+            pattern = user.partition(" ")[2]
+            reply = search_history(pattern)
             colored = reply
         else:
             reply = f"echo: {user}"
