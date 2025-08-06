@@ -6,9 +6,9 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
 <style>
   body { margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; }
-  #terminal { flex: 1; }
   .frame { border: 1px solid #666; margin: 8px; flex: 1; }
-  #status { margin: 8px; font-family: sans-serif; }
+  #controls { display: flex; align-items: center; gap: 8px; margin: 8px; }
+  #status { font-family: sans-serif; }
   #status::before {
     content: '';
     display: inline-block;
@@ -22,52 +22,50 @@
   #status.open::before { background: #0a0; }
   #status.close::before { background: #a00; }
   #status.error::before { background: #e69500; }
+  #tab-bar { display: flex; gap: 4px; margin: 0 8px; }
+  .tab { position: relative; padding: 4px 16px 4px 8px; cursor: pointer; }
+  .tab.active { background: #ddd; }
+  .close-tab { position: absolute; right: 4px; top: 2px; cursor: pointer; }
+  #terminal-container { flex: 1; display: flex; }
+  .hidden { display: none; }
 </style>
 </head>
 <body>
 <div id="controls">
   <span id="status" class="close">close</span>
+  <button id="new-tab">new</button>
 </div>
+<div id="tab-bar"></div>
 <dialog id="token-dialog">
   <label for="token-input">Token:</label>
   <input id="token-input" type="text" />
   <button id="token-save">Save</button>
 </dialog>
-<div id="terminal" class="frame"></div>
+<div id="terminal-container"></div>
 <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
 <script>
-const term = new Terminal({
-  cursorBlink: true,
-  theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? {
-    background: '#1e1e1e',
-    foreground: '#d4d4d4'
-  } : {
-    background: '#ffffff',
-    foreground: '#000000'
-  }
-});
-term.open(document.getElementById('terminal'));
-let buffer = '';
-let ws;
+if (window.Telegram && window.Telegram.WebApp) {
+  window.Telegram.WebApp.ready();
+}
 const statusEl = document.getElementById('status');
 const tokenDialog = document.getElementById('token-dialog');
 const tokenInput = document.getElementById('token-input');
-
+const tabBar = document.getElementById('tab-bar');
+const container = document.getElementById('terminal-container');
+const sessions = {};
+let activeSid = null;
+let tabCount = 0;
 function setStatus(state) {
   statusEl.textContent = state;
   statusEl.className = state;
 }
-
-function connect() {
+function connect(sid, term) {
   const token = localStorage.getItem('amlkToken');
   if (!token) {
     tokenDialog.showModal();
-    return;
+    return null;
   }
-  if (ws) {
-    ws.close();
-  }
-  ws = new WebSocket(`ws://${location.host}/ws?token=${token}`);
+  const ws = new WebSocket(`ws://${location.host}/ws?token=${token}&sid=${sid}`);
   ws.onopen = () => {
     setStatus('open');
     term.write('>> ');
@@ -82,36 +80,104 @@ function connect() {
   ws.onerror = () => {
     setStatus('error');
   };
+  return ws;
 }
-
+function setActive(sid) {
+  if (activeSid && sessions[activeSid]) {
+    sessions[activeSid].tab.classList.remove('active');
+    sessions[activeSid].el.classList.add('hidden');
+  }
+  activeSid = sid;
+  localStorage.setItem('amlkActiveSid', sid);
+  const session = sessions[sid];
+  session.tab.classList.add('active');
+  session.el.classList.remove('hidden');
+}
+function removeSession(sid) {
+  const session = sessions[sid];
+  if (!session) return;
+  session.ws && session.ws.close();
+  session.tab.remove();
+  session.el.remove();
+  delete sessions[sid];
+  if (activeSid === sid) {
+    const next = Object.keys(sessions)[0];
+    if (next) {
+      setActive(next);
+    } else {
+      activeSid = null;
+      localStorage.removeItem('amlkActiveSid');
+    }
+  }
+}
+function createSession(sid) {
+  sid = sid || (window.crypto ? crypto.randomUUID() : String(Date.now()));
+  const el = document.createElement('div');
+  el.className = 'frame hidden';
+  container.appendChild(el);
+  const term = new Terminal({
+    cursorBlink: true,
+    theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? {
+      background: '#1e1e1e',
+      foreground: '#d4d4d4'
+    } : {
+      background: '#ffffff',
+      foreground: '#000000'
+    }
+  });
+  term.open(el);
+  const ws = connect(sid, term);
+  sessions[sid] = { term, ws, el, buffer: '' };
+  const tab = document.createElement('div');
+  tab.className = 'tab';
+  tab.textContent = `#${++tabCount}`;
+  const closeBtn = document.createElement('span');
+  closeBtn.textContent = '×';
+  closeBtn.className = 'close-tab';
+  closeBtn.addEventListener('click', ev => {
+    ev.stopPropagation();
+    removeSession(sid);
+  });
+  tab.appendChild(closeBtn);
+  tab.addEventListener('click', () => setActive(sid));
+  tabBar.appendChild(tab);
+  sessions[sid].tab = tab;
+  term.onData(data => {
+    const session = sessions[sid];
+    if (!session) return;
+    if (data === '\r') {
+      if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+        session.ws.send(session.buffer);
+      }
+      session.buffer = '';
+    } else if (data === '\u007f') {
+      if (session.buffer.length > 0) {
+        session.buffer = session.buffer.slice(0, -1);
+        term.write('\b \b');
+      }
+    } else {
+      session.buffer += data;
+      term.write(data);
+    }
+  });
+  return sid;
+}
+document.getElementById('new-tab').addEventListener('click', () => {
+  setActive(createSession());
+});
 document.getElementById('token-save').addEventListener('click', () => {
   localStorage.setItem('amlkToken', tokenInput.value);
   tokenDialog.close();
-  connect();
+  if (!activeSid) {
+    setActive(createSession());
+  }
 });
-
 if (localStorage.getItem('amlkToken')) {
-  connect();
+  const last = localStorage.getItem('amlkActiveSid');
+  setActive(createSession(last));
 } else {
   tokenDialog.showModal();
 }
-
-term.onData(data => {
-  if (data === '\r') {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(buffer);
-    }
-    buffer = '';
-  } else if (data === '\u007f') {
-    if (buffer.length > 0) {
-      buffer = buffer.slice(0, -1);
-      term.write('\b \b');
-    }
-  } else {
-    buffer += data;
-    term.write(data);
-  }
-});
 </script>
 </body>
 </html>
