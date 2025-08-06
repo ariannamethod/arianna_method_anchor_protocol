@@ -1,241 +1,61 @@
-# alpine-python
+# Arianna Method Linux Kernel
 
-[![Docker Stars](https://img.shields.io/docker/stars/jfloff/alpine-python.svg)][hub]
-[![Docker Pulls](https://img.shields.io/docker/pulls/jfloff/alpine-python.svg)][hub]
-[![Build Status](https://travis-ci.org/jfloff/alpine-python.svg?branch=master)][travis]
+🔹 This is not just a Linux kernel. Arianna Core is a compact AI-first kernel framework.
 
-[hub]: https://hub.docker.com/r/jfloff/alpine-python/
-[travis]: https://travis-ci.org/jfloff/alpine-python
+## Building
 
-A small Python Docker image based on [Alpine Linux](http://alpinelinux.org/).
+The project ships a single entry script, `./build/build_ariannacore.sh`, which acquires kernel sources, prepares an `arianna_core_root` userland and emits a flat image. Run it from a fresh checkout to obtain a `bzImage` coupled with an `initramfs` that is aware of the assistant and the motd.
 
-<!-- MDTOC maxdepth:6 firsth1:0 numbering:0 flatten:0 bullets:1 updateOnSave:1 -->
+Passing `--with-python` expands the userland with the CPython runtime and tooling. The `--clean` flag wipes previous artifacts, and `--test-qemu` executes a minimal boot in QEMU to validate that the emission succeeded.
 
-- [alpine-python](#alpine-python)
-  - [Supported tags](#supported-tags)
-  - [Why?](#why)
-  - [Details](#details)
-  - [Usage](#usage)
-  - [Usage of `onbuild` images](#usage-of-onbuild-images)
-  - [Usage of `slim` images](#usage-of-slim-images)
-      - [Via `docker run`](#via-docker-run)
-      - [Pip Dependencies](#pip-dependencies)
-      - [Run-Time Dependencies](#run-time-dependencies)
-      - [Build-Time Dependencies](#build-time-dependencies)
-      - [Creating Images](#creating-images)
-      - [Debugging](#debugging)
-      - [Additional Arguments](#additional-arguments)
-  - [Ecosystem](#ecosystem)
-  - [Contribution](#contribution)
-  - [License](#license)
+## Running in QEMU
 
-<!-- /MDTOC -->
+A minimal invocation uses the `arianna-core.img` created during the build. QEMU can operate in headless mode:
 
-## Supported tags
-* **`2.7` ([2.7/Dockerfile](https://github.com/jfloff/alpine-python/blob/master/2.7/Dockerfile))**
-* **`2.7-onbuild` ([2.7-onbuild/Dockerfile](https://github.com/jfloff/alpine-python/blob/master/2.7-onbuild/Dockerfile))**
-* **`2.7-slim` ([2.7-slim/Dockerfile](https://github.com/jfloff/alpine-python/blob/master/2.7-slim/Dockerfile))**
-* **`3.6` ([Dockerfile](https://github.com/jfloff/alpine-python/blob/master/3.6/Dockerfile))**
-* **`3.6-onbuild` ([Dockerfile](https://github.com/jfloff/alpine-python/blob/master/3.6-onbuild/Dockerfile))**
-* **`3.6-slim` ([Dockerfile](https://github.com/jfloff/alpine-python/blob/master/3.6-slim/Dockerfile))**
-* **`3.7` ([Dockerfile](https://github.com/jfloff/alpine-python/blob/master/3.7/Dockerfile))**
-* **`3.7-onbuild` ([Dockerfile](https://github.com/jfloff/alpine-python/blob/master/3.7-onbuild/Dockerfile))**
-* **`3.7-slim` ([Dockerfile](https://github.com/jfloff/alpine-python/blob/master/3.7-slim/Dockerfile))**
-* **`3.8` `latest` ([Dockerfile](https://github.com/jfloff/alpine-python/blob/master/3.8/Dockerfile))**
-* **`3.8-onbuild` `latest-onbuild` ([Dockerfile](https://github.com/jfloff/alpine-python/blob/master/3.8-onbuild/Dockerfile))**
-* **`3.8-slim` `latest-slim` ([Dockerfile](https://github.com/jfloff/alpine-python/blob/master/3.8-slim/Dockerfile))**
-
-**NOTES:**
-- `onbuild` images install the `requirements.txt` of your project from the get go. This allows you to cache your requirements right in the build. _Make sure you are in the same directory of your `requirements.txt` file_.
-
-## Why?
-The default docker python images are too [big](https://github.com/docker-library/python/issues/45), much larger than they need to be. Hence I built this simple image based on [docker-alpine](https://github.com/gliderlabs/docker-alpine), that has everything needed for the most common python projects - including `python-dev` (which is not common in most minimal alpine python packages).
-
-|REPOSITORY|TAG|SIZE|
-|-|-|-|
-|jfloff/alpine-python|2.7-slim|60MB|
-|python|2.7-slim|120MB|
-|python|2.7-alpine|61.2MB|
-||||
-|jfloff/alpine-python|2.7|235MB|
-|python|2.7|912MB|
-||||
-|jfloff/alpine-python|3.6-slim|76.3MB|
-|python|3.6-slim|138MB|
-|python|3.6-alpine|79MB|
-||||
-|jfloff/alpine-python|3.6|252MB|
-|python|3.6|922MB|
-||||
-|jfloff/alpine-python|3.7-slim|80.4MB|
-|python|3.7-slim|86.7MB|
-|python|3.7-alpine|143MB|
-||||
-|jfloff/alpine-python|3.7|256MB|
-|python|3.7|927MB|
-
-Perhaps this could be even smaller, but I'm not an Alpine guru. **Feel free to post a PR.**
-
-## Details
-* Installs `build-base` and `python-dev`, allowing the use of more advanced packages such as `gevent`
-* Installs `bash` allowing interaction with the container
-* Just like the main `python` docker image, it creates useful symlinks that are expected to exist, e.g. `python3` > `python`, `pip2.7` > `pip`, etc.)
-* Added `testing` and `community` repositories to Alpine's `/etc/apk/repositories` file
-
-## Usage
-
-This image runs `python` command on `docker run`. You can either specify your own command, e.g:
-```shell
-docker run --rm -ti jfloff/alpine-python python hello.py
+```
+qemu-system-x86_64 -kernel build/kernel/linux-*/arch/x86/boot/bzImage -initrd build/arianna.initramfs.gz -append "console=ttyS0" -nographic
 ```
 
-You can also access `bash` inside the container:
-```shell
-docker run --rm -ti jfloff/alpine-python bash
-```
+For repeatable experiments, keep memory to 512M and disable reboot so that the exit status bubbles up to the host. The console is directed to `ttyS0`, allowing simple piping to tmux panes or log files.
 
-## Usage of `onbuild` images
+When `--test-qemu` is supplied to the build script, the above sequence is executed automatically; artifacts remain under the `boot/` directory for manual launches later on.
 
-These images can be used to bake your dependencies into an image by extending the plain python images. To do so, create a custom `Dockerfile` like this:
-```dockerfile
-FROM jfloff/alpine-python:3.6-onbuild
+## Future Interfaces
 
-# for a flask server
-EXPOSE 5000
-CMD python manage.py runserver
-```
+A Telegram bridge is planned through a small bot that proxies chat messages to `assistant.py`. The bot will authenticate via API token and map each chat to a session log, enabling asynchronous reasoning threads.
 
-Don't forget to build that `Dockerfile`:
-```shell
-docker build --rm=true -t jfloff/app .
+A web UI may follow, exposing the same assistant over WebSockets. The intent is to treat HTTP as a transport layer while preserving the conversational core. SSL termination and rate limiting will rely on existing libraries and can run in user space atop the initramfs.
 
-docker run --rm -t jfloff/app
-```
+Other interfaces—serial TTYs, named pipes or custom RPC schemes—remain feasible because the assistant operates in standard I/O space, reducing coupling to any specific frontend.
 
-Personally, I build an extended `Dockerfile` version (like shown above), and mount my specific application inside the container:
-```shell
-docker run --rm -v "$(pwd)":/home/app -w /home/app -p 5000:5000 -ti jfloff/app
-```
+## assistant.py
 
-## Usage of `slim` images
+The assistant is invoked after login and serves as the primary shell for Arianna Core. Each session creates a fresh log in `log/`, stamped with UTC time, ensuring chronological reconstruction of interactions.
 
-These images are very small to download, and can install requirements at run-time via flags. The install only happens the first time the container is run, and dependencies can be baked in (see Creating Images).
+A `/status` command reports CPU core count, raw uptime seconds read from `/proc/uptime`, and the current host IP. This offers an at-a-glance check that the minimal environment is healthy.
 
-#### Via `docker run`
-These images can be run in multiple ways. With no arguments, it will run `python` interactively:
-```shell
-docker run --rm -ti jfloff/alpine-python:2.7-slim
-```
+The `/summarize` command performs a naive search across all session logs and prints the last five matches, demonstrating how higher-order reasoning can be layered atop simple text filters.
 
-If you specify a command, they will run that:
-```shell
-docker run --rm -ti jfloff/alpine-python:2.7-slim python hello.py
-```
+By default any unrecognised input is echoed back, but the structure is prepared for more advanced NLP pipelines. Hooks can intercept the text and dispatch it to remote models, feeding results back through the same interface.
 
-#### Pip Dependencies
-Pip dependencies can be installed by the `-p` switch, or a `requirements.txt` file.
+Logging uses the `//:` motif in comments and writes both user prompts and assistant responses. Each line is timestamped with ISO-8601 precision, building a dataset suitable for replay or training.
 
-If the file is at `/requirements.txt` it will be automatically read for dependencies. If not, use the `-P` or `-r` switch to specify a file.
-```shell
-# This runs interactive Python with 'simplejson' and 'requests' installed
-docker run --rm -ti jfloff/alpine-python:2.7-slim -p simplejson -p requests
+Because the assistant resides in the repository root, the `cmd` directory only carries thin launchers. `startup.py` triggers the assistant on boot, while `monitor.sh` tails log files for real-time inspection.
 
-# Don't forget to add '--' after your dependencies to run a custom command:
-docker run --rm -ti jfloff/alpine-python:2.7-slim -p simplejson -p requests -- python hello.py
+The design keeps dependencies minimal. The script relies only on the Python standard library and can run inside the initramfs without additional packages unless `--with-python` is chosen.
 
-# This accomplishes the same thing by mounting a requirements.txt in:
-echo 'simplejson' > requirements.txt
-echo 'requests' > requirements.txt
-docker run --rm -ti \
-  -v requirements.txt:/requirements.txt \
-  jfloff/alpine-python:2.7-slim python hello.py
+As the project evolves, the assistant is expected to grow into a pluggable orchestrator capable of spawning subprocesses, managing asynchronous tasks and negotiating resources with the kernel via cgroups.
 
-# This does too, but with the file somewhere else:
-echo 'simplejson requests' > myapp/requirements.txt
-docker run --rm -ti \
-  -v myapp:/usr/src/app \
-  jfloff/alpine-python:2.7-slim \
-    -r /usr/src/app/requirements.txt \
-    -- python /usr/src/app/hello.py
-```
+## Architecture
 
-#### Run-Time Dependencies
-Alpine package dependencies can be installed by the `-a` switch, or an `apk-requirements.txt` file.
+1. **Kernel stratum** – configured through `arianna_kernel.config`, it ensures OverlayFS, ext4, namespaces and cgroups are wired in. Formally the configuration space is a tuple \(K = (k_1, k_2, ..., k_n)\) where each \(k_i\) toggles a capability required for higher layers.
+2. **Module layer** – placeholder today, destined to host `.ko` objects. These are morphisms extending \(K\) with elements from the set \(M\), enabling device drivers and specialised subsystems.
+3. **Boot image** – the concatenation of `bzImage` and `initramfs` forms a sequence \(B = b \cdot r\), a product in the monoid of binary blobs that QEMU interprets deterministically.
+4. **Userland root** – extracted from the Alpine lineage yet renamed to `arianna_core_root`, it is considered the base element \(u_0\) of an overlay lattice where successive changes form \(u_i = u_{i-1} \oplus d_i\).
+5. **Command stratum** – the `cmd` directory acts as a set of generators \(C = \{s, m\}\) where `s` launches the assistant and `m` streams logs; additional generators can be added without altering \(B\).
+6. **Assistant process** – modelled as a function \(A: I \rightarrow O\) mapping user input to output while appending to a log sequence \(L = [(t_0, i_0), (t_0, o_0), ...]\).
+7. **Log space** – each log file defines a time-ordered series, a totally ordered set under the relation "happens-before" derived from timestamps. Summaries operate as projections \(\pi: L \rightarrow L'\).
+8. **Interface adapters** – future Telegram or web modules will be functors transforming external message categories into the internal language of the assistant.
+9. **Resource governance** – cgroups partition CPU and memory; mathematically they form a tree \(T\) whose edges carry weight limits, and processes are leaves consuming fractions of those weights.
+10. **Self-monitoring** – the system aspires to feedback loops where the assistant interprets its own logs, creating a recurrence relation \(x_{n+1} = f(x_n)\) pointing toward reflexive reasoning.
 
-If the file is at `/apk-requirements.txt` it will be automatically read for dependencies. If not, use the `-A` switch to specify a file.
-
-You can also try installing some Python modules via this method, but it is possible for Pip to interfere if it detects a version problem.
-```shell
-# Unknown why you'd need to do this, but you can!
-docker run --rm -ti jfloff/alpine-python:2.7-slim -a openssl -- python hello.py
-
-# This installs libxml2 module faster than via Pip, but then Pip reinstalls it because Ajenti's dependencies make it think it's the wrong version.
-docker run --rm -ti jfloff/alpine-python:2.7-slim -a py-libxml2 -p ajenti
-```
-
-#### Build-Time Dependencies
-Build-time Alpine package dependencies (such as compile headers) can be installed by the `-b` switch, or a `build-requirements.txt` file. They will be removed after the dependencies are installed to save space.
-
-If the file is at `/build-requirements.txt` it will be automatically read for dependencies. If not, use the `-B` switch to specify a file.
-
-`build-base`, `linux-headers` and `python-dev` are always build dependencies, you don't need to include them.
-```shell
-docker run --rm -ti jfloff/alpine-python:2.7-slim \
-  -p gevent \
-  -p libxml2 \
-  -b libxslt-dev \
-  -b libxml-dev \
-  -- python hello.py
-```
-
-#### Creating Images
-Similar to the onbuild images, dependencies can be baked into a new image by using a custom `Dockerfile`, e.g:
-```dockerfile
-FROM jfloff/alpine-python:2.7-slim
-RUN /entrypoint.sh \
-  -p ajenti-panel \
-  -p ajenti.plugin.dashboard \
-  -p ajenti.plugin.settings \
-  -p ajenti.plugin.plugins \
-  -b libxml2-dev \
-  -b libxslt-dev \
-  -b libffi-dev \
-  -b openssl-dev \
-&& echo
-CMD ["ajenti-panel"]
-# you won't be able to add more dependencies later though-- see 'Debugging'
-```
-
-#### Debugging
-The `/entrypoint.sh` script that manages dependencies in the slim images creates an empty file, `/requirements.installed`, telling the script not to install any dependencies after the container's first run. Removing this file will allow the script to work again if it is needed.
-
-You can use the `-x` flag to see everything the `/entrypoint.sh` script is doing.
-
-You can also access `bash` inside the container:
-```shell
-docker run --rm -ti jfloff/alpine-python:2.7-slim bash
-```
-
-#### Additional Arguments
-
-`-q`: silences output from `/entrypoint.sh`
-`-x`: turns on Bash debugging, making the output very verbose.
-
-## Ecosystem
-
-These are some of the images that use `jfloff/alpine-python` as base image. *If you have another image that uses this as base image, please submit an issue or PR for it to be added. Image has to be published on Docker Hub.*
-
-- **[jfloff/alscipy](https://github.com/jfloff/docker-alscipy)** [![Docker Stars](https://img.shields.io/docker/stars/jfloff/alscipy.svg)][alscipy-hub] [![Docker Pulls](https://img.shields.io/docker/pulls/jfloff/alscipy.svg)][alscipy-hub] : image with common packages for Science in Alpine Python.
-- **[jfloff/pywfm](https://github.com/jfloff/docker-pywfm)** [![Docker Stars](https://img.shields.io/docker/stars/jfloff/pywfm.svg)][pywfm-hub] [![Docker Pulls](https://img.shields.io/docker/pulls/jfloff/pywfm.svg)][pywfm-hub] : image from the python wrapper for Steffen Rendle's factorization machines library libFM.
-- **[bismuthfoundation/Bismuth-Docker](https://github.com/bismuthfoundation/Bismuth-Docker)** [![Docker Stars](https://img.shields.io/docker/stars/eggdrasyl/bismuth-node.svg)][busmuth-hub] [![Docker Pulls](https://img.shields.io/docker/pulls/eggdrasyl/bismuth-node.svg)][busmuth-hub] : node and associated services, from scratch crypto-currency with Python codebase.
-
-[alscipy-hub]: https://hub.docker.com/r/jfloff/alscipy/
-[pywfm-hub]: https://hub.docker.com/r/jfloff/pywfm/
-[busmuth-hub]: https://hub.docker.com/r/eggdrasyl/bismuth-node/
-
-
-## Contribution
-Feel free to contribute with whatever you feel like this image is missing. There is also some changes that happen often like, updating Alpine or Python versions. Do not forget that this repo folders mirror **Python** version and **_not_** Alpine versions.
-
-## License
-The code in this repository, unless otherwise noted, is MIT licensed. See the `LICENSE` file in this repository.
