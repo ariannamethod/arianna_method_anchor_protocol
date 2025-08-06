@@ -15,7 +15,9 @@ from telegram import (
 from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
+    CommandHandler,
     ContextTypes,
+    ConversationHandler,
     MessageHandler,
     filters,
 )
@@ -34,6 +36,8 @@ INLINE_KEYBOARD = InlineKeyboardMarkup(
         ]
     ]
 )
+
+RUN_COMMAND = 0
 
 
 class LetsGoProcess:
@@ -138,11 +142,50 @@ async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     cmd = update.message.text if update.message else ""
     if not cmd:
         return
-    output = await letsgo.run(cmd)
+    try:
+        output = await letsgo.run(cmd)
+    except Exception as exc:  # noqa: BLE001 - send error to user
+        await update.message.reply_text(f"Error: {exc}")
+        return
     if cmd in MAIN_COMMANDS:
         await update.message.reply_text(output, reply_markup=INLINE_KEYBOARD)
     else:
         await update.message.reply_text(output)
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    commands = "\n".join(f"{cmd} - {desc}" for cmd, (_, desc) in CORE_COMMANDS.items())
+    await update.message.reply_text(
+        "Welcome! Available commands:\n" + commands,
+        reply_markup=INLINE_KEYBOARD,
+    )
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await handle_telegram(update, context)
+
+
+async def run_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("Send the command to run.")
+    return RUN_COMMAND
+
+
+async def run_execute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    cmd = update.message.text if update.message else ""
+    if not cmd:
+        await update.message.reply_text("No command provided.")
+        return ConversationHandler.END
+    try:
+        output = await letsgo.run(cmd)
+        await update.message.reply_text(output)
+    except Exception as exc:  # noqa: BLE001 - send error to user
+        await update.message.reply_text(f"Error: {exc}")
+    return ConversationHandler.END
+
+
+async def run_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("Cancelled.")
+    return ConversationHandler.END
 
 
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -162,8 +205,17 @@ async def start_bot() -> None:
     application = ApplicationBuilder().token(token).build()
     commands = [BotCommand(cmd[1:], desc) for cmd, (_, desc) in CORE_COMMANDS.items()]
     await application.bot.set_my_commands(commands)
-
-    application.add_handler(MessageHandler(filters.TEXT, handle_telegram))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    run_conv = ConversationHandler(
+        entry_points=[CommandHandler("run", run_start)],
+        states={
+            RUN_COMMAND: [MessageHandler(filters.TEXT & ~filters.COMMAND, run_execute)]
+        },
+        fallbacks=[CommandHandler("cancel", run_cancel)],
+    )
+    application.add_handler(run_conv)
+    application.add_handler(MessageHandler(filters.COMMAND, handle_telegram))
     application.add_handler(CallbackQueryHandler(handle_callback))
     await application.run_polling()
 
