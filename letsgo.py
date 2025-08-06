@@ -11,6 +11,7 @@ import atexit
 import asyncio
 import importlib
 import pkgutil
+import importlib.metadata as importlib_metadata
 from datetime import datetime
 from pathlib import Path
 from collections import deque
@@ -34,6 +35,13 @@ USE_COLOR = (
 )
 if _NO_COLOR_FLAG in sys.argv:
     sys.argv.remove(_NO_COLOR_FLAG)
+
+
+APP_NAME = "LetsGo"
+try:
+    APP_VERSION = importlib_metadata.version("letsgo")
+except importlib_metadata.PackageNotFoundError:
+    APP_VERSION = None
 
 
 # Configuration
@@ -381,6 +389,7 @@ async def main() -> None:
     COMMAND_HANDLERS.clear()
     register_core(COMMANDS, COMMAND_HANDLERS)
     _load_plugins(COMMANDS, COMMAND_HANDLERS)
+    command_summary = " ".join(sorted(COMMAND_MAP))
 
     readline.parse_and_bind("tab: complete")
 
@@ -407,7 +416,11 @@ async def main() -> None:
     atexit.register(readline.write_history_file, str(HISTORY_PATH))
 
     log("session_start")
-    print("LetsGo terminal ready. Type 'exit' to quit.")
+    version = f" v{APP_VERSION}" if APP_VERSION else ""
+    header = f"{APP_NAME}{version}"
+    print(color(header, SETTINGS.green))
+    print(color("Commands:", SETTINGS.cyan), command_summary)
+    print("Type 'exit' to quit.")
     while True:
         try:
             user = await async_input(color(SETTINGS.prompt, SETTINGS.cyan))
