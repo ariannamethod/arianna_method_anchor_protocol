@@ -2,6 +2,12 @@
 
 **Arianna Method Linux Kernel (AMLK)** is a deliberately compact operating nucleus engineered from Alpine sources to provide a deterministic base for AI workloads.
 
+Те, кто хочет пощупать вживую новое ядро, могут заглянуть в Telegram к боту **Терминал Робот** по адресу [https://t.me/methodterminalrobot](https://t.me/methodterminalrobot). Позже там появятся дополнительные скриншоты и примеры использования.
+
+Бот предоставляет минимальный терминал, подключённый к тому же ядру, что и AMLK. Он умеет принимать команды, возвращать вывод и вести общий журнал с остальными интерфейсами.
+
+Дальнейшее развитие бота направлено на расширение возможностей: мы планируем добавить мониторинг, управление ресурсами и другие способы взаимодействия. Помимо Arianna Method OS, бот служит чистой минималистичной точкой доступа к новому ядру Linux.
+
 The kernel is configured to load with a small initramfs derived from Alpine's minirootfs, reducing boot complexity to (O(1)) relative to module count.
 
 OverlayFS support enables layered filesystems, modeled as a union (U = R \cup W) where read-only and writable layers intersect for efficient state changes.
