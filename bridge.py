@@ -28,6 +28,7 @@ from telegram.ext import (
     ContextTypes,
     ConversationHandler,
     MessageHandler,
+    PicklePersistence,
     filters,
 )
 from letsgo import CORE_COMMANDS
@@ -239,6 +240,8 @@ async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user = update.effective_user
     if not cmd or not user:
         return
+    history = context.user_data.setdefault("history", [])
+    history.append(cmd)
     try:
         proc = await _get_user_proc(user.id)
         output = await proc.run(cmd)
@@ -302,6 +305,8 @@ async def run_execute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     if not cmd or not user:
         await update.message.reply_text("No command provided.")
         return ConversationHandler.END
+    history = context.user_data.setdefault("history", [])
+    history.append(cmd)
     try:
         proc = await _get_user_proc(user.id)
         output = await proc.run(cmd)
@@ -324,6 +329,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user = update.effective_user
     if not user:
         return
+    history = context.user_data.setdefault("history", [])
+    history.append(cmd)
     proc = await _get_user_proc(user.id)
     output = await proc.run(cmd)
     await query.answer()
@@ -334,7 +341,9 @@ async def start_bot() -> None:
     token = os.getenv("TELEGRAM_TOKEN", "").strip()
     if not token:
         return
-    application = ApplicationBuilder().token(token).build()
+    persistence_path = os.getenv("TELEGRAM_PERSISTENCE", "telegram_state.pkl")
+    persistence = PicklePersistence(filepath=persistence_path)
+    application = ApplicationBuilder().token(token).persistence(persistence).build()
     commands = [
         BotCommand(cmd[1:], desc.lower()) for cmd, (_, desc) in CORE_COMMANDS.items()
     ]
@@ -359,6 +368,7 @@ async def start_bot() -> None:
         await asyncio.Future()
     finally:
         await application.updater.stop()
+        await application.update_persistence()
         await application.stop()
         await application.shutdown()
 
