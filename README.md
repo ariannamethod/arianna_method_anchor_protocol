@@ -2,11 +2,13 @@
 
 **Arianna Method Linux Kernel (AMLK)** is a deliberately compact operating nucleus engineered from Alpine sources to provide a deterministic base for AI workloads.
 
-Те, кто хочет пощупать вживую новое ядро, могут заглянуть в Telegram к боту **Терминал Робот** по адресу [https://t.me/methodterminalrobot](https://t.me/methodterminalrobot). Позже там появятся дополнительные скриншоты и примеры использования.
+Those who want to try the new kernel firsthand can visit the Telegram bot **Terminal Robot** at [https://t.me/methodterminalrobot](https://t.me/methodterminalrobot). Additional screenshots and usage examples will appear there later.
 
-Бот предоставляет минимальный терминал, подключённый к тому же ядру, что и AMLK. Он умеет принимать команды, возвращать вывод и вести общий журнал с остальными интерфейсами.
+The bot provides a minimal terminal connected to the same kernel as AMLK. It can accept commands, return output, and maintain a shared log with other interfaces.
 
-Дальнейшее развитие бота направлено на расширение возможностей: мы планируем добавить мониторинг, управление ресурсами и другие способы взаимодействия. Помимо Arianna Method OS, бот служит чистой минималистичной точкой доступа к новому ядру Linux.
+Future development of the bot aims to expand its capabilities: we plan to add monitoring, resource management, and other interaction methods. Beyond Arianna Method OS, the bot serves as a clean minimalist access point to the new Linux kernel.
+
+Contributors and any form of collaboration are warmly welcomed.
 
 The kernel is configured to load with a small initramfs derived from Alpine's minirootfs, reducing boot complexity to (O(1)) relative to module count.
 
@@ -58,13 +60,13 @@ The bridge and HTTP server require several variables to be set before starting `
 
 ---
 
-## Настройка токенов
+## Token Setup
 
-- `API_TOKEN` — токен для HTTP и WebSocket. Перед запуском задайте его через `export API_TOKEN=...`.
-- `TELEGRAM_TOKEN` — токен Telegram‑бота, необходим для включения бота.
-- В веб‑интерфейсе откройте `arianna_terminal.html` и введите токен в поле **Token**; значение сохраняется в `localStorage`.
+- `API_TOKEN` – token for HTTP and WebSocket. Set it before launch via `export API_TOKEN=...`.
+- `TELEGRAM_TOKEN` – Telegram bot token required to enable the bot.
+- In the web interface open `arianna_terminal.html` and enter the token in the **Token** field; the value is stored in `localStorage`.
 
-Пример запуска:
+Example run:
 
 ```bash
 API_TOKEN=secret TELEGRAM_TOKEN=123 python bridge.py
