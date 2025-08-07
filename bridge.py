@@ -20,6 +20,8 @@ from telegram import (
     BotCommand,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    MenuButtonWebApp,
+    WebAppInfo,
 )
 from telegram.ext import (
     ApplicationBuilder,
@@ -339,6 +341,11 @@ async def start_bot() -> None:
         BotCommand(cmd[1:], desc.lower()) for cmd, (_, desc) in CORE_COMMANDS.items()
     ]
     await application.bot.set_my_commands(commands)
+    terminal_url = os.getenv("WEB_TERMINAL_URL", "").strip()
+    if terminal_url:
+        await application.bot.set_chat_menu_button(
+            MenuButtonWebApp(text="Terminal", web_app=WebAppInfo(url=terminal_url))
+        )
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     run_conv = ConversationHandler(
