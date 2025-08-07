@@ -295,7 +295,9 @@ async def start_bot() -> None:
     if not token:
         return
     application = ApplicationBuilder().token(token).build()
-    commands = [BotCommand(cmd[1:], desc) for cmd, (_, desc) in CORE_COMMANDS.items()]
+    commands = [
+        BotCommand(cmd[1:], desc.lower()) for cmd, (_, desc) in CORE_COMMANDS.items()
+    ]
     await application.bot.set_my_commands(commands)
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
