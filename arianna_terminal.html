@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <title>Arianna Terminal</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   body { margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; }
   .frame { border: 1px solid #666; margin: 8px; flex: 1; }
@@ -47,8 +48,10 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.164.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.164.0/examples/js/controls/OrbitControls.js"></script>
 <script>
-if (window.Telegram && window.Telegram.WebApp) {
-  window.Telegram.WebApp.ready();
+const tg = window.Telegram?.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
 }
 const statusEl = document.getElementById('status');
 const tokenDialog = document.getElementById('token-dialog');
@@ -166,7 +169,10 @@ function setActive(sid) {
 function removeSession(sid) {
   const session = sessions[sid];
   if (!session) return;
-  session.ws && session.ws.close();
+  if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+    session.ws.send('__close__');
+    session.ws.close();
+  }
   session.tab.remove();
   session.el.remove();
   delete sessions[sid];

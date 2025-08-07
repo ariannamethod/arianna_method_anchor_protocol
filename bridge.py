@@ -156,6 +156,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     try:
         while True:
             cmd = await websocket.receive_text()
+            if cmd == "__close__":
+                break
             output = await proc.run(cmd)
             await websocket.send_text(output)
     except WebSocketDisconnect:
