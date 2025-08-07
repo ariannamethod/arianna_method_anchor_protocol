@@ -1,6 +1,7 @@
 import asyncio
 import os
 import time
+from pathlib import Path
 from typing import Dict
 
 from fastapi import (
@@ -210,11 +211,33 @@ async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     except Exception as exc:  # noqa: BLE001 - send error to user
         await update.message.reply_text(f"Error: {exc}")
         return
+    if not output:
+        return
     base = cmd.split()[0]
     if base in MAIN_COMMANDS:
         await update.message.reply_text(output, reply_markup=INLINE_KEYBOARD)
     else:
         await update.message.reply_text(output)
+
+
+async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message:
+        return
+    document = update.message.document
+    photo = update.message.photo[-1] if update.message.photo else None
+    tg_file = None
+    name = None
+    if document:
+        tg_file = await document.get_file()
+        name = document.file_name or document.file_unique_id
+    elif photo:
+        tg_file = await photo.get_file()
+        name = f"{photo.file_unique_id}.jpg"
+    if not tg_file or not name:
+        return
+    dest = Path(name)
+    await tg_file.download_to_drive(custom_path=str(dest))
+    await update.message.reply_text(f"file {name} uploaded")
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -284,6 +307,7 @@ async def start_bot() -> None:
         fallbacks=[CommandHandler("cancel", run_cancel)],
     )
     application.add_handler(run_conv)
+    application.add_handler(MessageHandler(filters.ATTACHMENT, handle_file))
     application.add_handler(MessageHandler(filters.COMMAND, handle_telegram))
     application.add_handler(CallbackQueryHandler(handle_callback))
     await application.initialize()
