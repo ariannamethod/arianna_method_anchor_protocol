@@ -108,6 +108,9 @@ class LetsGoProcess:
 
 letsgo = LetsGoProcess()
 sessions: Dict[str, LetsGoProcess] = {}
+user_sessions: Dict[int, LetsGoProcess] = {}
+_user_last_active: Dict[int, float] = {}
+SESSION_TIMEOUT = float(os.getenv("USER_SESSION_TIMEOUT", "300"))
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -128,6 +131,35 @@ def _check_rate(client: str) -> None:
     if now - _last_call.get(client, 0) < RATE_LIMIT:
         raise HTTPException(status_code=429, detail="rate limit exceeded")
     _last_call[client] = now
+
+
+async def _get_user_proc(user_id: int) -> LetsGoProcess:
+    proc = user_sessions.get(user_id)
+    if not proc:
+        proc = LetsGoProcess()
+        await proc.start()
+        user_sessions[user_id] = proc
+    _user_last_active[user_id] = time.time()
+    return proc
+
+
+async def cleanup_user_sessions() -> None:
+    try:
+        while True:
+            await asyncio.sleep(60)
+            now = time.time()
+            stale = [
+                uid
+                for uid, last in _user_last_active.items()
+                if now - last > SESSION_TIMEOUT
+            ]
+            for uid in stale:
+                proc = user_sessions.pop(uid, None)
+                _user_last_active.pop(uid, None)
+                if proc:
+                    await proc.stop()
+    except asyncio.CancelledError:
+        pass
 
 
 @app.post("/run")
@@ -204,10 +236,12 @@ async def upload_ws(websocket: WebSocket) -> None:
 
 async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     cmd = update.message.text if update.message else ""
-    if not cmd:
+    user = update.effective_user
+    if not cmd or not user:
         return
     try:
-        output = await letsgo.run(cmd)
+        proc = await _get_user_proc(user.id)
+        output = await proc.run(cmd)
     except Exception as exc:  # noqa: BLE001 - send error to user
         await update.message.reply_text(f"Error: {exc}")
         return
@@ -264,11 +298,13 @@ async def run_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def run_execute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     cmd = update.message.text if update.message else ""
-    if not cmd:
+    user = update.effective_user
+    if not cmd or not user:
         await update.message.reply_text("No command provided.")
         return ConversationHandler.END
     try:
-        output = await letsgo.run(cmd)
+        proc = await _get_user_proc(user.id)
+        output = await proc.run(cmd)
         await update.message.reply_text(output)
     except Exception as exc:  # noqa: BLE001 - send error to user
         await update.message.reply_text(f"Error: {exc}")
@@ -285,7 +321,11 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not query:
         return
     cmd = query.data or ""
-    output = await letsgo.run(cmd)
+    user = update.effective_user
+    if not user:
+        return
+    proc = await _get_user_proc(user.id)
+    output = await proc.run(cmd)
     await query.answer()
     await query.message.reply_text(output, reply_markup=INLINE_KEYBOARD)
 
@@ -330,7 +370,7 @@ async def main() -> None:
             port=int(os.getenv("PORT", "8000")),
         )
     )
-    await asyncio.gather(server.serve(), start_bot())
+    await asyncio.gather(server.serve(), start_bot(), cleanup_user_sessions())
 
 
 if __name__ == "__main__":
