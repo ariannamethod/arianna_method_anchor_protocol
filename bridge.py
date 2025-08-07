@@ -35,16 +35,19 @@ import uvicorn
 
 PROMPT = ">>"
 
-MAIN_COMMANDS = ["/status", "/time", "/help"]
-INLINE_KEYBOARD = InlineKeyboardMarkup(
-    [
+MAIN_COMMANDS = [cmd for cmd in ("/status", "/time", "/help") if cmd in CORE_COMMANDS]
+
+
+def build_main_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
         [
-            InlineKeyboardButton("status", callback_data="/status"),
-            InlineKeyboardButton("time", callback_data="/time"),
-            InlineKeyboardButton("help", callback_data="/help"),
+            [
+                InlineKeyboardButton(cmd.lstrip("/"), callback_data=cmd)
+                for cmd in MAIN_COMMANDS
+            ]
         ]
-    ]
-)
+    )
+
 
 RUN_COMMAND = 0
 
@@ -249,7 +252,7 @@ async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     base = cmd.split()[0]
     if base in MAIN_COMMANDS:
-        await update.message.reply_text(output, reply_markup=INLINE_KEYBOARD)
+        await update.message.reply_text(output, reply_markup=build_main_keyboard())
     else:
         await update.message.reply_text(output)
 
@@ -278,7 +281,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     commands = "\n".join(f"{cmd} - {desc}" for cmd, (_, desc) in CORE_COMMANDS.items())
     await update.message.reply_text(
         "Welcome! Available commands:\n" + commands,
-        reply_markup=INLINE_KEYBOARD,
+        reply_markup=build_main_keyboard(),
     )
 
 
@@ -327,7 +330,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     proc = await _get_user_proc(user.id)
     output = await proc.run(cmd)
     await query.answer()
-    await query.message.reply_text(output, reply_markup=INLINE_KEYBOARD)
+    await query.message.reply_text(output, reply_markup=build_main_keyboard())
 
 
 async def start_bot() -> None:
