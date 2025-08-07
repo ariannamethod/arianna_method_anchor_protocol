@@ -22,7 +22,7 @@ from typing import (
     List,
     Tuple,
 )
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import re
 import shutil
 
@@ -57,6 +57,7 @@ class Settings:
     reset: str = "\033[0m"
     max_log_files: int = 100
     command_timeout: int = 10
+    use_color: bool = True
 
 
 def _load_settings(path: Path = CONFIG_PATH) -> Settings:
@@ -77,6 +78,14 @@ def _load_settings(path: Path = CONFIG_PATH) -> Settings:
                             value = int(value)
                         except ValueError:
                             continue
+                    elif isinstance(attr, bool):
+                        value_lower = value.lower()
+                        if value_lower in {"1", "true", "yes", "on"}:
+                            value = True
+                        elif value_lower in {"0", "false", "no", "off"}:
+                            value = False
+                        else:
+                            continue
                     setattr(settings, key, value)
     except FileNotFoundError:
         pass
@@ -84,6 +93,15 @@ def _load_settings(path: Path = CONFIG_PATH) -> Settings:
 
 
 SETTINGS = _load_settings()
+USE_COLOR = USE_COLOR and SETTINGS.use_color
+
+
+def _save_settings(path: Path | None = None) -> None:
+    path = path or CONFIG_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as fh:
+        for key, value in asdict(SETTINGS).items():
+            fh.write(f"{key}={value}\n")
 
 
 def color(text: str, code: str) -> str:
@@ -436,6 +454,8 @@ async def handle_color(user: str) -> Tuple[str, str | None]:
         return reply, reply
     global USE_COLOR
     USE_COLOR = parts[1] == "on"
+    SETTINGS.use_color = USE_COLOR
+    _save_settings()
     state = "enabled" if USE_COLOR else "disabled"
     reply = f"color {state}"
     return reply, color(reply, SETTINGS.green)
@@ -541,6 +561,7 @@ async def main() -> None:
 
     readline.set_completer(completer)
     atexit.register(readline.write_history_file, str(HISTORY_PATH))
+    atexit.register(_save_settings)
 
     log("session_start")
     version = f" v{APP_VERSION}" if APP_VERSION else ""

@@ -222,3 +222,12 @@ def test_handle_upload_missing_file(tmp_path, monkeypatch):
         assert colored.startswith("\033[31m")
     else:
         assert colored is not None
+
+
+def test_color_setting_persisted(tmp_path, monkeypatch):
+    config = tmp_path / "config"
+    monkeypatch.setattr(letsgo, "CONFIG_PATH", config)
+    monkeypatch.setattr(letsgo, "SETTINGS", letsgo.Settings())
+    monkeypatch.setattr(letsgo, "USE_COLOR", True)
+    asyncio.run(letsgo.handle_color("/color off"))
+    assert "use_color=False" in config.read_text()
