@@ -24,6 +24,7 @@ from typing import (
 )
 from dataclasses import dataclass, asdict
 import re
+import shutil
 
 _NO_COLOR_FLAG = "--no-color"
 USE_COLOR = (
@@ -175,6 +176,42 @@ def status() -> str:
     return f"CPU cores: {cpu}\nUptime: {uptime}s\nIP: {ip}"
 
 
+def cpu_load() -> str:
+    """Return CPU load averages."""
+    load1, load5, load15 = os.getloadavg()
+    return f"Load average (1m,5m,15m): {load1:.2f}, {load5:.2f}, {load15:.2f}"
+
+
+def disk_usage_info() -> str:
+    """Return disk usage statistics for the root filesystem."""
+    total, used, free = shutil.disk_usage("/")
+    to_gib = 1024**3
+    return (
+        f"Disk /: total {total // to_gib} GiB, "
+        f"used {used // to_gib} GiB, free {free // to_gib} GiB"
+    )
+
+
+def _default_gateway() -> str:
+    try:
+        with open("/proc/net/route") as fh:
+            for line in fh.readlines()[1:]:
+                fields = line.strip().split()
+                if fields[1] != "00000000" or not int(fields[3], 16) & 2:
+                    continue
+                return socket.inet_ntoa(bytes.fromhex(fields[2])[::-1])
+    except OSError:
+        pass
+    return "unknown"
+
+
+def network_info() -> str:
+    """Return basic network parameters."""
+    ip = _first_ip()
+    gateway = _default_gateway()
+    return f"IP: {ip}\nGateway: {gateway}"
+
+
 def current_time() -> str:
     """Return the current UTC time."""
     return datetime.utcnow().isoformat()
@@ -317,6 +354,21 @@ async def handle_status(_: str) -> Tuple[str, str | None]:
     return reply, color(reply, SETTINGS.green)
 
 
+async def handle_cpu(_: str) -> Tuple[str, str | None]:
+    reply = cpu_load()
+    return reply, color(reply, SETTINGS.green)
+
+
+async def handle_disk(_: str) -> Tuple[str, str | None]:
+    reply = disk_usage_info()
+    return reply, color(reply, SETTINGS.green)
+
+
+async def handle_net(_: str) -> Tuple[str, str | None]:
+    reply = network_info()
+    return reply, color(reply, SETTINGS.green)
+
+
 async def handle_time(_: str) -> Tuple[str, str | None]:
     reply = current_time()
     return reply, reply
@@ -442,6 +494,9 @@ async def handle_color(user: str) -> Tuple[str, str | None]:
 
 CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
     "/status": (handle_status, "show basic system metrics"),
+    "/cpu": (handle_cpu, "show CPU load"),
+    "/disk": (handle_disk, "show disk usage"),
+    "/net": (handle_net, "show network parameters"),
     "/time": (handle_time, "show current UTC time"),
     "/run": (handle_run, "run a shell command"),
     "/py": (handle_py, "execute Python code"),
@@ -456,6 +511,9 @@ CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
 
 COMMAND_HELP: Dict[str, str] = {
     "/status": "Usage: /status\nShow basic system metrics.",
+    "/cpu": "Usage: /cpu\nShow CPU load averages.",
+    "/disk": "Usage: /disk\nShow disk usage information.",
+    "/net": "Usage: /net\nShow network parameters.",
     "/time": "Usage: /time\nDisplay the current UTC time.",
     "/run": "Usage: /run <command>\nRun a shell command and return its output.",
     "/py": "Usage: /py <code>\nExecute Python code and print the result.",
