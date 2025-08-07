@@ -284,7 +284,15 @@ async def start_bot() -> None:
     application.add_handler(run_conv)
     application.add_handler(MessageHandler(filters.COMMAND, handle_telegram))
     application.add_handler(CallbackQueryHandler(handle_callback))
-    await application.run_polling()
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+    try:
+        await asyncio.Future()
+    finally:
+        await application.updater.stop()
+        await application.stop()
+        await application.shutdown()
 
 
 async def main() -> None:
