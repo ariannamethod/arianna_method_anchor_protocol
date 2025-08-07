@@ -126,6 +126,29 @@ _last_call: Dict[str, float] = {}
 UPLOAD_DIR = "/arianna_core/upload"
 
 
+HISTORY_ROOT = Path.home() / ".letsgo"
+
+
+def _history_path(user_id: int) -> Path:
+    return HISTORY_ROOT / str(user_id) / "history"
+
+
+def _append_history(user_id: int, cmd: str) -> None:
+    path = _history_path(user_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(cmd + "\n")
+
+
+def _read_history(user_id: int) -> list[str]:
+    path = _history_path(user_id)
+    try:
+        with path.open(encoding="utf-8") as fh:
+            return [line.rstrip() for line in fh]
+    except FileNotFoundError:
+        return []
+
+
 def _check_rate(client: str) -> None:
     now = time.time()
     if now - _last_call.get(client, 0) < RATE_LIMIT:
@@ -242,6 +265,8 @@ async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     try:
         proc = await _get_user_proc(user.id)
         output = await proc.run(cmd)
+        if cmd.split()[0] != "/history":
+            _append_history(user.id, cmd)
     except Exception as exc:  # noqa: BLE001 - send error to user
         await update.message.reply_text(f"Error: {exc}")
         return
@@ -291,6 +316,17 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await handle_telegram(update, context)
 
 
+async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    if not user or not update.message:
+        return
+    history = _read_history(user.id)
+    if history:
+        await update.message.reply_text("\n".join(history))
+    else:
+        await update.message.reply_text("No history yet.")
+
+
 async def run_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Send the command to run.")
     return RUN_COMMAND
@@ -305,6 +341,7 @@ async def run_execute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     try:
         proc = await _get_user_proc(user.id)
         output = await proc.run(cmd)
+        _append_history(user.id, cmd)
         await update.message.reply_text(output)
     except Exception as exc:  # noqa: BLE001 - send error to user
         await update.message.reply_text(f"Error: {exc}")
@@ -326,6 +363,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     proc = await _get_user_proc(user.id)
     output = await proc.run(cmd)
+    _append_history(user.id, cmd)
     await query.answer()
     await query.message.reply_text(output, reply_markup=INLINE_KEYBOARD)
 
@@ -338,9 +376,11 @@ async def start_bot() -> None:
     commands = [
         BotCommand(cmd[1:], desc.lower()) for cmd, (_, desc) in CORE_COMMANDS.items()
     ]
+    commands.append(BotCommand("history", "show command history"))
     await application.bot.set_my_commands(commands)
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("history", history_command))
     run_conv = ConversationHandler(
         entry_points=[CommandHandler("run", run_start)],
         states={
