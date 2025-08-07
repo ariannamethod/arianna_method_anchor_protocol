@@ -33,6 +33,7 @@ from telegram.ext import (
     PicklePersistence,
     filters,
 )
+from telegram.constants import ChatAction
 from letsgo import CORE_COMMANDS
 import uvicorn
 
@@ -272,6 +273,10 @@ async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     history.append(cmd)
     try:
         proc = await _get_user_proc(user.id)
+        await context.bot.send_chat_action(
+            chat_id=update.effective_chat.id,
+            action=ChatAction.TYPING,
+        )
         output = await proc.run(cmd)
         if cmd.split()[0] != "/history":
             _append_history(user.id, cmd)
@@ -284,7 +289,16 @@ async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if base in MAIN_COMMANDS:
         await update.message.reply_text(output, reply_markup=build_main_keyboard())
     else:
-        await update.message.reply_text(output)
+        if len(output) > 4000:
+            for i in range(0, len(output), 4000):
+                chunk = output[i : i + 4000]
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=f"```\n{chunk}\n```",
+                    parse_mode="Markdown",
+                )
+        else:
+            await update.message.reply_text(output)
 
 
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
