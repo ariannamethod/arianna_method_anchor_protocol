@@ -25,6 +25,8 @@ from typing import (
 from dataclasses import dataclass, asdict
 import re
 import shutil
+from spirits.johny import Companion as JohnyCompanion
+from spirits.tony import Companion as TonyCompanion
 
 _NO_COLOR_FLAG = "--no-color"
 USE_COLOR = (
@@ -118,6 +120,11 @@ HISTORY_PATH = DATA_DIR / "history"
 PY_TIMEOUT = 5
 
 ERROR_LOG_PATH = LOG_DIR / "errors.log"
+
+JOHNY = JohnyCompanion()
+TONY = TonyCompanion()
+ACTIVE_COMPANION = None
+LAST_USER_COMMAND = ""
 
 Handler = Callable[[str], Awaitable[Tuple[str, str | None]]]
 
@@ -424,7 +431,8 @@ async def handle_py(user: str) -> Tuple[str, str | None]:
 
 async def handle_clear(_: str) -> Tuple[str, str | None]:
     os.system("clear")
-    return "", None
+    reply = "Cleared."
+    return reply, reply
 
 
 async def handle_history(user: str) -> Tuple[str, str | None]:
@@ -446,7 +454,7 @@ async def handle_help(user: str) -> Tuple[str, str | None]:
         reply = f"No help available for {cmd}"
         return reply, reply
     lines: list[str] = []
-    for cmd, (_, desc) in sorted(COMMAND_MAP.items()):
+    for cmd, (_, desc) in COMMAND_MAP.items():
         lines.append(f"{cmd} - {desc}")
     reply = "\n".join(lines)
     return reply, reply
@@ -478,39 +486,60 @@ async def handle_ping(_: str) -> Tuple[str, str | None]:
     return reply, reply
 
 
-async def handle_color(user: str) -> Tuple[str, str | None]:
-    parts = user.split()
-    if len(parts) != 2 or parts[1] not in {"on", "off"}:
-        reply = "Usage: /color on|off"
-        return reply, reply
-    global USE_COLOR
-    USE_COLOR = parts[1] == "on"
-    SETTINGS.use_color = USE_COLOR
-    _save_settings()
-    state = "enabled" if USE_COLOR else "disabled"
-    reply = f"color {state}"
-    return reply, color(reply, SETTINGS.green)
+async def handle_dive(_: str) -> Tuple[str, str | None]:
+    global ACTIVE_COMPANION
+    reply = JOHNY.start(LAST_USER_COMMAND)
+    ACTIVE_COMPANION = JOHNY
+    return reply, reply
+
+
+async def handle_diveoff(_: str) -> Tuple[str, str | None]:
+    global ACTIVE_COMPANION
+    reply = JOHNY.stop()
+    ACTIVE_COMPANION = None
+    return reply, reply
+
+
+async def handle_deepdive(_: str) -> Tuple[str, str | None]:
+    global ACTIVE_COMPANION
+    reply = TONY.start(LAST_USER_COMMAND)
+    ACTIVE_COMPANION = TONY
+    return reply, reply
+
+
+async def handle_xplaineroff(_: str) -> Tuple[str, str | None]:
+    global ACTIVE_COMPANION
+    reply = TONY.stop()
+    ACTIVE_COMPANION = None
+    return reply, reply
 
 
 CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
-    "/status": (handle_status, "show basic system metrics"),
+    "/dive": (handle_dive, "ask companion"),
+    "/diveoff": (handle_diveoff, "companion off"),
+    "/deepdive": (handle_deepdive, "deep xplainer companion"),
+    "/xplaineroff": (handle_xplaineroff, "xplaineroff"),
+    "/status": (handle_status, "show system metrics"),
     "/cpu": (handle_cpu, "show CPU load"),
-    "/disk": (handle_disk, "show disk usage"),
-    "/net": (handle_net, "show network parameters"),
-    "/time": (handle_time, "show current UTC time"),
-    "/run": (handle_run, "run a shell command"),
+    "/disk": (handle_disk, "disk usage"),
+    "/net": (handle_net, "network parameters"),
+    "/time": (handle_time, "curent UTC time"),
+    "/run": (handle_run, "shell command"),
     "/py": (handle_py, "execute Python code"),
-    "/summarize": (handle_summarize, "summarize log entries"),
-    "/clear": (handle_clear, "clear the terminal screen"),
-    "/history": (handle_history, "show command history"),
-    "/help": (handle_help, "show this help message"),
+    "/summarize": (handle_summarize, "log entries"),
+    "/clear": (handle_clear, "clear the terminal"),
+    "/history": (handle_history, "command history"),
+    "/help": (handle_help, "help message"),
     "/search": (handle_search, "search command history"),
     "/ping": (handle_ping, "reply with pong"),
-    "/color": (handle_color, "toggle colored output"),
 }
 
 COMMAND_HELP: Dict[str, str] = {
-    "/status": "Usage: /status\nShow basic system metrics.",
+    "/dive": "Usage: /dive\nAsk Johny for help with the last command.",
+    "/diveoff": "Usage: /diveoff\nStop Johny's chat mode.",
+    "/deepdive": "Usage: /deepdive\nAsk Tony for a deep explanation.",
+    "/xplaineroff": "Usage: /xplaineroff\nStop Tony's chat mode.",
+    "/status": "Usage: /status\nShow system metrics.",
     "/cpu": "Usage: /cpu\nShow CPU load averages.",
     "/disk": "Usage: /disk\nShow disk usage information.",
     "/net": "Usage: /net\nShow network parameters.",
@@ -521,12 +550,11 @@ COMMAND_HELP: Dict[str, str] = {
         "Usage: /summarize [--history] [limit]"
         "\nSummarize recent log entries or command history."
     ),
-    "/clear": "Usage: /clear\nClear the terminal screen.",
+    "/clear": "Usage: /clear\nClear the terminal.",
     "/history": "Usage: /history [n]\nShow the last n commands.",
     "/help": "Usage: /help [command]\nList commands or show detailed help.",
     "/search": "Usage: /search <pattern>\nSearch the command history.",
     "/ping": "Usage: /ping\nReply with pong.",
-    "/color": "Usage: /color on|off\nEnable or disable colored output.",
 }
 
 COMMAND_HANDLERS: Dict[str, Handler] = {
@@ -543,6 +571,7 @@ def register_core(commands: List[str], handlers: Dict[str, Handler]) -> None:
 
 
 async def main() -> None:
+    global LAST_USER_COMMAND
     _ensure_log_dir()
     HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -550,7 +579,7 @@ async def main() -> None:
     except FileNotFoundError:
         pass
 
-    command_summary = " ".join(sorted(COMMAND_HANDLERS))
+    command_summary = " ".join(COMMANDS)
 
     readline.parse_and_bind("tab: complete")
     readline.parse_and_bind(r'"\e[A": history-search-backward')
@@ -593,6 +622,16 @@ async def main() -> None:
             break
         if user.strip().lower() in {"exit", "quit"}:
             break
+        JOHNY.record("user", user)
+        TONY.record("user", user)
+        if ACTIVE_COMPANION and not user.startswith("/"):
+            reply = ACTIVE_COMPANION.respond(user)
+            print(reply)
+            JOHNY.record("assistant", reply)
+            TONY.record("assistant", reply)
+            log(f"letsgo:{reply}")
+            LAST_USER_COMMAND = user
+            continue
         log(f"user:{user}")
         base = user.split()[0]
         handler = COMMAND_HANDLERS.get(base)
@@ -603,7 +642,10 @@ async def main() -> None:
             colored = color(reply, SETTINGS.red)
         if colored is not None:
             print(colored)
+        JOHNY.record("assistant", reply)
+        TONY.record("assistant", reply)
         log(f"letsgo:{reply}")
+        LAST_USER_COMMAND = user
     log("session_end")
 
 
