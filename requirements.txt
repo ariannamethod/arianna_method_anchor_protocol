@@ -2,3 +2,4 @@ fastapi
 uvicorn[standard]
 python-telegram-bot
 python-multipart
+aiohttp

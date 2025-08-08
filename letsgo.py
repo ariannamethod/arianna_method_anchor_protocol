@@ -486,12 +486,15 @@ async def handle_ping(_: str) -> Tuple[str, str | None]:
     reply = "pong"
     return reply, reply
 
+
 async def handle_xplaine(_: str) -> Tuple[str, str | None]:
     global COMPANION_ACTIVE
     COMPANION_ACTIVE = True
     last_cmd = tommy.get_last_user_command()
     prefix = (
-        f"There were problems with '{last_cmd}'.\n" if last_cmd else "There were problems with your last command.\n"
+        f"There were problems with '{last_cmd}'.\n"
+        if last_cmd
+        else "There were problems with your last command.\n"
     )
     advice = await tommy.xplaine()
     reply = prefix + advice
@@ -506,6 +509,8 @@ async def handle_xplaineoff(_: str) -> Tuple[str, str | None]:
 
 
 CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
+    "/xplaine": (handle_xplaine, "ask companion"),
+    "/xplaineoff": (handle_xplaineoff, "companion off"),
     "/status": (handle_status, "show system metrics"),
     "/cpu": (handle_cpu, "show CPU load"),
     "/disk": (handle_disk, "disk usage"),
@@ -519,8 +524,6 @@ CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
     "/help": (handle_help, "help message"),
     "/search": (handle_search, "search command history"),
     "/ping": (handle_ping, "reply with pong"),
-    "/xplaine": (handle_xplaine, "ask companion"),
-    "/xplaineoff": (handle_xplaineoff, "companion off"),
 }
 
 COMMAND_HELP: Dict[str, str] = {
