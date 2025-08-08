@@ -12,9 +12,7 @@ DB_PATH = LOG_DIR / "tommy.sqlite3"
 
 def _init_db() -> None:
     conn = sqlite3.connect(DB_PATH)
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS events (ts TEXT, type TEXT, message TEXT)"
-    )
+    conn.execute("CREATE TABLE IF NOT EXISTS events (ts TEXT, type TEXT, message TEXT)")
     conn.commit()
     conn.close()
 
@@ -44,6 +42,7 @@ GROK_PROMPT = (
     "Await the call..."
 )
 
+
 def log_event(msg: str, log_type: str = "info") -> None:
     log_file = LOG_DIR / f"{datetime.now().strftime('%Y-%m-%d')}.jsonl"
     entry = {"timestamp": datetime.now().isoformat(), "type": log_type, "message": msg}
@@ -58,10 +57,11 @@ def log_event(msg: str, log_type: str = "info") -> None:
     conn.close()
 
 
-def get_last_user_command() -> str | None:
+def get_last_user_command(offset: int = 1) -> str | None:
     conn = sqlite3.connect(DB_PATH)
     cur = conn.execute(
-        "SELECT message FROM events WHERE message LIKE 'user:%' ORDER BY rowid DESC LIMIT 1"
+        "SELECT message FROM events WHERE message LIKE 'user:%' ORDER BY rowid DESC LIMIT 1 OFFSET ?",
+        (max(offset - 1, 0),),
     )
     row = cur.fetchone()
     conn.close()
@@ -69,11 +69,10 @@ def get_last_user_command() -> str | None:
         return row[0].split(":", 1)[1]
     return None
 
+
 async def xplaine(log_path: str = "") -> str:
     conn = sqlite3.connect(DB_PATH)
-    cur = conn.execute(
-        "SELECT message FROM events ORDER BY rowid DESC LIMIT 10"
-    )
+    cur = conn.execute("SELECT message FROM events ORDER BY rowid DESC LIMIT 10")
     rows = cur.fetchall()
     conn.close()
     recent_logs = [r[0] for r in rows][::-1]
@@ -101,6 +100,7 @@ async def chat(message: str) -> str:
         log_event(f"Tommy error: {str(e)}", "error")
         return f"Error: {str(e)}. Tommy holds the line! 🌩️"
 
+
 async def query_grok3(user_prompt: str, temp: float = 0.8) -> str:
     import aiohttp
 
@@ -112,16 +112,13 @@ async def query_grok3(user_prompt: str, temp: float = 0.8) -> str:
     payload = {
         "messages": [
             {"role": "system", "content": GROK_PROMPT},
-            {"role": "user", "content": user_prompt}
+            {"role": "user", "content": user_prompt},
         ],
-        "model": "grok-3",          # <--- правильная модель!
+        "model": "grok-3",  # <--- правильная модель!
         "stream": False,
-        "temperature": temp
+        "temperature": temp,
     }
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=payload) as resp:
             if resp.status != 200:
@@ -130,12 +127,14 @@ async def query_grok3(user_prompt: str, temp: float = 0.8) -> str:
             result = await resp.json()
             return result["choices"][0]["message"]["content"].strip()
 
+
 # Интеграция в letsgo.py (пример)
 async def process_command(cmd: str, log_file: str) -> str:
     if cmd == "/xplaine":
         return await xplaine(log_file)
     # Остальной код letsgo.py
     return f"Unknown command: {cmd}. Use /xplaine for guidance!"
+
 
 if __name__ == "__main__":
     asyncio.run(xplaine())

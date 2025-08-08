@@ -490,12 +490,8 @@ async def handle_ping(_: str) -> Tuple[str, str | None]:
 async def handle_xplaine(_: str) -> Tuple[str, str | None]:
     global COMPANION_ACTIVE
     COMPANION_ACTIVE = True
-    last_cmd = tommy.get_last_user_command()
-    prefix = (
-        f"There were problems with '{last_cmd}'.\n"
-        if last_cmd
-        else "There were problems with your last command.\n"
-    )
+    last_cmd = tommy.get_last_user_command(2)
+    prefix = f"Analyzing '{last_cmd}'.\n" if last_cmd else ""
     advice = await tommy.xplaine()
     reply = prefix + advice
     return reply, reply
