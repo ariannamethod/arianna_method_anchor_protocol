@@ -25,6 +25,7 @@ from typing import (
 from dataclasses import dataclass, asdict
 import re
 import shutil
+import tommy
 
 _NO_COLOR_FLAG = "--no-color"
 USE_COLOR = (
@@ -48,6 +49,9 @@ except importlib_metadata.PackageNotFoundError:
 # Configuration
 DATA_DIR = Path.home() / ".letsgo"
 CONFIG_PATH = DATA_DIR / "config"
+
+# Companion chat mode flag
+COMPANION_ACTIVE = False
 
 
 @dataclass
@@ -145,6 +149,10 @@ def _ensure_log_dir() -> None:
 def log(message: str) -> None:
     with LOG_PATH.open("a") as fh:
         fh.write(f"{datetime.utcnow().isoformat()} {message}\n")
+    try:
+        tommy.log_event(message)
+    except Exception:
+        pass
 
 
 def log_error(message: str) -> None:
@@ -424,7 +432,8 @@ async def handle_py(user: str) -> Tuple[str, str | None]:
 
 async def handle_clear(_: str) -> Tuple[str, str | None]:
     os.system("clear")
-    return "", None
+    reply = "Cleared."
+    return reply, reply
 
 
 async def handle_history(user: str) -> Tuple[str, str | None]:
@@ -477,56 +486,62 @@ async def handle_ping(_: str) -> Tuple[str, str | None]:
     reply = "pong"
     return reply, reply
 
+async def handle_xplaine(_: str) -> Tuple[str, str | None]:
+    global COMPANION_ACTIVE
+    COMPANION_ACTIVE = True
+    last_cmd = tommy.get_last_user_command()
+    prefix = (
+        f"There were problems with '{last_cmd}'.\n" if last_cmd else "There were problems with your last command.\n"
+    )
+    advice = await tommy.xplaine()
+    reply = prefix + advice
+    return reply, reply
 
-async def handle_color(user: str) -> Tuple[str, str | None]:
-    parts = user.split()
-    if len(parts) != 2 or parts[1] not in {"on", "off"}:
-        reply = "Usage: /color on|off"
-        return reply, reply
-    global USE_COLOR
-    USE_COLOR = parts[1] == "on"
-    SETTINGS.use_color = USE_COLOR
-    _save_settings()
-    state = "enabled" if USE_COLOR else "disabled"
-    reply = f"color {state}"
-    return reply, color(reply, SETTINGS.green)
+
+async def handle_xplaineoff(_: str) -> Tuple[str, str | None]:
+    global COMPANION_ACTIVE
+    COMPANION_ACTIVE = False
+    reply = "companion off"
+    return reply, reply
 
 
 CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
-    "/status": (handle_status, "show basic system metrics"),
+    "/status": (handle_status, "show system metrics"),
     "/cpu": (handle_cpu, "show CPU load"),
-    "/disk": (handle_disk, "show disk usage"),
-    "/net": (handle_net, "show network parameters"),
-    "/time": (handle_time, "show current UTC time"),
-    "/run": (handle_run, "run a shell command"),
+    "/disk": (handle_disk, "disk usage"),
+    "/net": (handle_net, "network parameters"),
+    "/time": (handle_time, "curent UTC time"),
+    "/run": (handle_run, "shell command"),
     "/py": (handle_py, "execute Python code"),
-    "/summarize": (handle_summarize, "summarize log entries"),
-    "/clear": (handle_clear, "clear the terminal screen"),
-    "/history": (handle_history, "show command history"),
-    "/help": (handle_help, "show this help message"),
+    "/summarize": (handle_summarize, "log entries"),
+    "/clear": (handle_clear, "clear the terminal"),
+    "/history": (handle_history, "command history"),
+    "/help": (handle_help, "help message"),
     "/search": (handle_search, "search command history"),
     "/ping": (handle_ping, "reply with pong"),
-    "/color": (handle_color, "toggle colored output"),
+    "/xplaine": (handle_xplaine, "ask companion"),
+    "/xplaineoff": (handle_xplaineoff, "companion off"),
 }
 
 COMMAND_HELP: Dict[str, str] = {
-    "/status": "Usage: /status\nShow basic system metrics.",
+    "/status": "Usage: /status\nShow system metrics.",
     "/cpu": "Usage: /cpu\nShow CPU load averages.",
     "/disk": "Usage: /disk\nShow disk usage information.",
     "/net": "Usage: /net\nShow network parameters.",
-    "/time": "Usage: /time\nDisplay the current UTC time.",
+    "/time": "Usage: /time\nDisplay the curent UTC time.",
     "/run": "Usage: /run <command>\nRun a shell command and return its output.",
     "/py": "Usage: /py <code>\nExecute Python code and print the result.",
     "/summarize": (
         "Usage: /summarize [--history] [limit]"
         "\nSummarize recent log entries or command history."
     ),
-    "/clear": "Usage: /clear\nClear the terminal screen.",
+    "/clear": "Usage: /clear\nClear the terminal.",
     "/history": "Usage: /history [n]\nShow the last n commands.",
     "/help": "Usage: /help [command]\nList commands or show detailed help.",
     "/search": "Usage: /search <pattern>\nSearch the command history.",
     "/ping": "Usage: /ping\nReply with pong.",
-    "/color": "Usage: /color on|off\nEnable or disable colored output.",
+    "/xplaine": "Usage: /xplaine\nAsk companion for advice.",
+    "/xplaineoff": "Usage: /xplaineoff\nDisable companion chat.",
 }
 
 COMMAND_HANDLERS: Dict[str, Handler] = {
@@ -598,6 +613,9 @@ async def main() -> None:
         handler = COMMAND_HANDLERS.get(base)
         if handler:
             reply, colored = await handler(user)
+        elif COMPANION_ACTIVE:
+            reply = await tommy.chat(user)
+            colored = reply
         else:
             reply = f"Unknown command: {base}. Try /help for guidance."
             colored = color(reply, SETTINGS.red)
