@@ -39,7 +39,11 @@ import uvicorn
 
 PROMPT = ">>"
 
-MAIN_COMMANDS = [cmd for cmd in ("/status", "/time", "/help") if cmd in CORE_COMMANDS]
+MAIN_COMMANDS = [
+    cmd
+    for cmd in ("/dive", "/deepdive", "/diveoff", "/status", "/time", "/help")
+    if cmd in CORE_COMMANDS
+]
 
 
 def build_main_keyboard() -> InlineKeyboardMarkup:
@@ -401,10 +405,7 @@ async def start_bot() -> None:
     persistence_path = os.getenv("TELEGRAM_PERSISTENCE", "telegram_state.pkl")
     persistence = PicklePersistence(filepath=persistence_path)
     application = ApplicationBuilder().token(token).persistence(persistence).build()
-    commands = [
-        BotCommand(cmd[1:], desc.lower()) for cmd, (_, desc) in CORE_COMMANDS.items()
-    ]
-    commands.append(BotCommand("history", "show command history"))
+    commands = [BotCommand(cmd[1:], desc) for cmd, (_, desc) in CORE_COMMANDS.items()]
     await application.bot.set_my_commands(commands)
     terminal_url = os.getenv("WEB_TERMINAL_URL", "").strip()
     if terminal_url:

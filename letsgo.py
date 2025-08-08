@@ -25,6 +25,7 @@ from typing import (
 from dataclasses import dataclass, asdict
 import re
 import shutil
+from spirits import johny, tony
 
 _NO_COLOR_FLAG = "--no-color"
 USE_COLOR = (
@@ -118,6 +119,9 @@ HISTORY_PATH = DATA_DIR / "history"
 PY_TIMEOUT = 5
 
 ERROR_LOG_PATH = LOG_DIR / "errors.log"
+
+ACTIVE_COMPANION: str | None = None
+LAST_USER_COMMAND = ""
 
 Handler = Callable[[str], Awaitable[Tuple[str, str | None]]]
 
@@ -424,7 +428,8 @@ async def handle_py(user: str) -> Tuple[str, str | None]:
 
 async def handle_clear(_: str) -> Tuple[str, str | None]:
     os.system("clear")
-    return "", None
+    reply = "Cleared."
+    return reply, reply
 
 
 async def handle_history(user: str) -> Tuple[str, str | None]:
@@ -477,40 +482,51 @@ async def handle_ping(_: str) -> Tuple[str, str | None]:
     reply = "pong"
     return reply, reply
 
+async def handle_dive(_: str) -> Tuple[str, str | None]:
+    global ACTIVE_COMPANION
+    ACTIVE_COMPANION = "johny"
+    reply = johny.start_chat(LAST_USER_COMMAND)
+    return reply, reply
 
-async def handle_color(user: str) -> Tuple[str, str | None]:
-    parts = user.split()
-    if len(parts) != 2 or parts[1] not in {"on", "off"}:
-        reply = "Usage: /color on|off"
-        return reply, reply
-    global USE_COLOR
-    USE_COLOR = parts[1] == "on"
-    SETTINGS.use_color = USE_COLOR
-    _save_settings()
-    state = "enabled" if USE_COLOR else "disabled"
-    reply = f"color {state}"
-    return reply, color(reply, SETTINGS.green)
+
+async def handle_deepdive(_: str) -> Tuple[str, str | None]:
+    global ACTIVE_COMPANION
+    ACTIVE_COMPANION = "tony"
+    reply = tony.start_chat(LAST_USER_COMMAND)
+    return reply, reply
+
+
+async def handle_diveoff(_: str) -> Tuple[str, str | None]:
+    global ACTIVE_COMPANION
+    ACTIVE_COMPANION = None
+    reply = "Companion off."
+    return reply, reply
 
 
 CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
-    "/status": (handle_status, "show basic system metrics"),
+    "/dive": (handle_dive, "ask companion"),
+    "/deepdive": (handle_deepdive, "deep xplainer companion"),
+    "/diveoff": (handle_diveoff, "xplaineroff"),
+    "/status": (handle_status, "show system metrics"),
     "/cpu": (handle_cpu, "show CPU load"),
-    "/disk": (handle_disk, "show disk usage"),
-    "/net": (handle_net, "show network parameters"),
-    "/time": (handle_time, "show current UTC time"),
-    "/run": (handle_run, "run a shell command"),
+    "/disk": (handle_disk, "disk usage"),
+    "/net": (handle_net, "network parameters"),
+    "/time": (handle_time, "curent UTC time"),
+    "/run": (handle_run, "shell command"),
     "/py": (handle_py, "execute Python code"),
-    "/summarize": (handle_summarize, "summarize log entries"),
-    "/clear": (handle_clear, "clear the terminal screen"),
-    "/history": (handle_history, "show command history"),
-    "/help": (handle_help, "show this help message"),
+    "/summarize": (handle_summarize, "log entries"),
+    "/clear": (handle_clear, "clear the terminal"),
+    "/history": (handle_history, "command history"),
+    "/help": (handle_help, "help message"),
     "/search": (handle_search, "search command history"),
     "/ping": (handle_ping, "reply with pong"),
-    "/color": (handle_color, "toggle colored output"),
 }
 
 COMMAND_HELP: Dict[str, str] = {
-    "/status": "Usage: /status\nShow basic system metrics.",
+    "/dive": "Usage: /dive\nStart chat with johny about the last command.",
+    "/deepdive": "Usage: /deepdive\nStart chat with tony about the last command.",
+    "/diveoff": "Usage: /diveoff\nDisable active companion chat.",
+    "/status": "Usage: /status\nShow system metrics.",
     "/cpu": "Usage: /cpu\nShow CPU load averages.",
     "/disk": "Usage: /disk\nShow disk usage information.",
     "/net": "Usage: /net\nShow network parameters.",
@@ -521,12 +537,11 @@ COMMAND_HELP: Dict[str, str] = {
         "Usage: /summarize [--history] [limit]"
         "\nSummarize recent log entries or command history."
     ),
-    "/clear": "Usage: /clear\nClear the terminal screen.",
+    "/clear": "Usage: /clear\nClear the terminal.",
     "/history": "Usage: /history [n]\nShow the last n commands.",
     "/help": "Usage: /help [command]\nList commands or show detailed help.",
     "/search": "Usage: /search <pattern>\nSearch the command history.",
     "/ping": "Usage: /ping\nReply with pong.",
-    "/color": "Usage: /color on|off\nEnable or disable colored output.",
 }
 
 COMMAND_HANDLERS: Dict[str, Handler] = {
@@ -594,10 +609,21 @@ async def main() -> None:
         if user.strip().lower() in {"exit", "quit"}:
             break
         log(f"user:{user}")
+        johny.record(user)
+        tony.record(user)
         base = user.split()[0]
         handler = COMMAND_HANDLERS.get(base)
         if handler:
             reply, colored = await handler(user)
+            if base not in {"/dive", "/deepdive", "/diveoff"}:
+                global LAST_USER_COMMAND
+                LAST_USER_COMMAND = user
+        elif ACTIVE_COMPANION and not user.startswith("/"):
+            if ACTIVE_COMPANION == "johny":
+                reply = johny.chat(user)
+            else:
+                reply = tony.chat(user)
+            colored = reply
         else:
             reply = f"Unknown command: {base}. Try /help for guidance."
             colored = color(reply, SETTINGS.red)
