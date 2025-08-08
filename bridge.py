@@ -401,6 +401,7 @@ async def start_bot() -> None:
     persistence_path = os.getenv("TELEGRAM_PERSISTENCE", "telegram_state.pkl")
     persistence = PicklePersistence(filepath=persistence_path)
     application = ApplicationBuilder().token(token).persistence(persistence).build()
+    await application.bot.delete_webhook(drop_pending_updates=True)
     commands = [BotCommand(cmd[1:], desc) for cmd, (_, desc) in CORE_COMMANDS.items()]
     commands.append(BotCommand("history", "command history"))
     await application.bot.set_my_commands(commands)
