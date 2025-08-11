@@ -59,22 +59,23 @@ def log_event(msg: str, log_type: str = "info") -> None:
     conn.close()
 
 
-def get_last_user_command(offset: int = 1) -> str | None:
+def get_last_user_command(offset: int = 1, exclude: set[str] | None = None) -> str | None:
+    exclude = exclude or set()
     conn = sqlite3.connect(DB_PATH)
     cur = conn.execute(
-        "SELECT message FROM events WHERE message LIKE 'user:%' ORDER BY rowid DESC LIMIT 1 OFFSET ?",
-        (max(offset - 1, 0),),
+        "SELECT message FROM events WHERE message LIKE 'user:%' ORDER BY rowid DESC",
     )
-    row = cur.fetchone()
+    rows = cur.fetchall()
     conn.close()
-    if row:
-        return row[0].split(":", 1)[1]
+    filtered = [r[0].split(":", 1)[1] for r in rows if r[0].split(":", 1)[1] not in exclude]
+    if len(filtered) >= offset:
+        return filtered[offset - 1]
     return None
 
 
 async def xplaine(log_path: str = "") -> str:
     """Provide guidance based on the command issued before /xplaine."""
-    last_cmd = get_last_user_command(2)
+    last_cmd = get_last_user_command(exclude={"/xplaine", "/xplaineoff"})
     if not last_cmd:
         return "Hey there! I'm Tommy. Need help?"
 
@@ -84,7 +85,9 @@ async def xplaine(log_path: str = "") -> str:
     conn.close()
 
     recent_logs = [r[0] for r in rows][::-1]
-    recent_logs = [msg for msg in recent_logs if msg != "user:/xplaine"]
+    recent_logs = [
+        msg for msg in recent_logs if msg not in {"user:/xplaine", "user:/xplaineoff"}
+    ]
     context = "\n".join(recent_logs)
     try:
         from letsgo import CORE_COMMANDS

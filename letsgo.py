@@ -449,6 +449,8 @@ async def handle_help(user: str) -> Tuple[str, str | None]:
     parts = user.split(maxsplit=1)
     if len(parts) > 1:
         cmd = parts[1]
+        if not cmd.startswith("/"):
+            cmd = "/" + cmd
         help_text = COMMAND_HELP.get(cmd)
         if help_text:
             return help_text, help_text
