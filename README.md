@@ -2,7 +2,7 @@
 
 **Arianna Method Linux Kernel (AMLK)** is a deliberately compact operating nucleus engineered from Alpine sources to provide a deterministic base for AI workloads.
 
-Those who want to try the new kernel firsthand can visit the Telegram bot **Terminal Robot** at [https://t.me/methodterminalrobot](https://t.me/methodterminalrobot). Additional screenshots and usage examples will appear there later.
+Those who want to try the new kernel firsthand can visit the Telegram bot **Terminal Robot** at [https://t.me/ariannaterminalrobot](https://t.me/ariannaterminalrobot). Additional screenshots and usage examples will appear there later.
 
 The robot provides a minimal terminal connected to the same kernel as AMLK. It can accept commands, return output, and maintain a shared log with other interfaces.
 
