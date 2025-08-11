@@ -141,6 +141,16 @@ The terminal, invoked after login, serves as the shell for Arianna Core.
 	•	Unrecognized input: echoed back.
 	•	Structure ready for more advanced NLP (text hooks dispatch to remote models).
 
+Tommy
+
+Tommy is the resident companion embedded in the terminal. He observes the dialogue between the user and letsgo.py, ready to offer guidance when summoned. Every command and reply is recorded, giving him a running context of the session and a memory he can draw from when answering.
+
+Under the hood Tommy writes each event to a SQLite database and JSONL log. When a user requests help, he pulls the most recent entries, isolates the last meaningful command, and composes a prompt that reflects the current state of the terminal. This lightweight log-driven approach keeps his suggestions grounded in real activity.
+
+Tommy routes these prompts to the Grok‑3 model through the x.ai API. The API key comes from the `XAI_API_KEY` environment variable, and responses are streamed back asynchronously. By limiting temperature and filtering prompts, he produces concise operational advice instead of chatter.
+
+The companion wakes when `/xplaine` appears and sleeps on `/xplaineoff`. He never invents commands; instead he enumerates available verbs and explains how to proceed. Each interaction is appended to the log so that future sessions retain the story. Tommy’s tone is direct and confident, mirroring the stripped‑down ethos of Arianna Method OS.
+
 Logs timestamped with ISO-8601, using //: comments, for replay or training.
 
 Minimal dependencies: pure Python stdlib, runs in initramfs even without extra packages.
