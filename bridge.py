@@ -108,8 +108,14 @@ class LetsGoProcess:
         if self.proc and self.proc.stdin:
             self.proc.stdin.close()
         if self.proc:
-            self.proc.terminate()
-            await self.proc.wait()
+            try:
+                self.proc.terminate()
+            except ProcessLookupError:
+                pass
+            try:
+                await self.proc.wait()
+            except ProcessLookupError:
+                pass
             self.proc = None
 
 
