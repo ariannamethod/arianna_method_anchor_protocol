@@ -25,6 +25,9 @@ from typing import (
 from dataclasses import dataclass, asdict
 import re
 import shutil
+import shlex
+import textwrap
+import ast
 import tommy
 
 _NO_COLOR_FLAG = "--no-color"
@@ -158,6 +161,32 @@ def log(message: str) -> None:
 def log_error(message: str) -> None:
     with ERROR_LOG_PATH.open("a") as fh:
         fh.write(f"{datetime.utcnow().isoformat()} {message}\n")
+
+
+def format_python(code: str) -> str:
+    """Return code formatted according to Python conventions."""
+    try:
+        import black
+
+        return black.format_str(code, mode=black.FileMode())
+    except Exception:
+        return textwrap.dedent(code)
+
+
+def looks_like_python(code: str) -> bool:
+    """Heuristic check whether ``code`` resembles Python source."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return False
+    if (
+        len(tree.body) == 1
+        and isinstance(tree.body[0], ast.Expr)
+        and isinstance(tree.body[0].value, ast.Name)
+        and tree.body[0].value.id == code.strip()
+    ):
+        return False
+    return True
 
 
 def _first_ip() -> str:
@@ -401,11 +430,34 @@ async def handle_run(user: str) -> Tuple[str, str | None]:
     return reply, None
 
 
+async def handle_bash(user: str) -> Tuple[str, str | None]:
+    script = user.partition(" ")[2]
+    if not script:
+        reply = "Usage: /bash <script>"
+        return reply, reply
+    command = f"bash -lc {shlex.quote(script)}"
+    output, rc, duration = await run_command(command)
+    if output:
+        if rc != 0:
+            print(color(output, SETTINGS.red))
+        else:
+            print(output)
+    status = f"код возврата: {rc}, длительность: {duration:.2f}s"
+    if rc != 0:
+        print(color(status, SETTINGS.red))
+        log_error(f"{script} | {status} | {output}")
+    else:
+        print(color(status, SETTINGS.green))
+    reply = "\n".join(filter(None, [output, status]))
+    return reply, None
+
+
 async def handle_py(user: str) -> Tuple[str, str | None]:
     code = user.partition(" ")[2]
     if not code:
         reply = "Usage: /py <code>"
         return reply, reply
+    code = format_python(code)
     try:
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
@@ -512,6 +564,7 @@ CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
     "/net": (handle_net, "network parameters"),
     "/time": (handle_time, "curent UTC time"),
     "/run": (handle_run, "shell command"),
+    "/bash": (handle_bash, "bash script"),
     "/py": (handle_py, "execute Python code"),
     "/summarize": (handle_summarize, "log entries"),
     "/clear": (handle_clear, "clear the terminal"),
@@ -528,6 +581,7 @@ COMMAND_HELP: Dict[str, str] = {
     "/net": "Usage: /net\nShow network parameters.",
     "/time": "Usage: /time\nDisplay the curent UTC time.",
     "/run": "Usage: /run <command>\nRun a shell command and return its output.",
+    "/bash": "Usage: /bash <script>\nExecute a Bash script.",
     "/py": "Usage: /py <code>\nExecute Python code and print the result.",
     "/summarize": (
         "Usage: /summarize [--history] [limit]"
@@ -615,8 +669,11 @@ async def main() -> None:
             reply = await tommy.chat(user)
             colored = reply
         else:
-            reply = f"Unknown command: {base}. Try /help for guidance."
-            colored = color(reply, SETTINGS.red)
+            if looks_like_python(user):
+                reply, colored = await handle_py(f"/py {user}")
+            else:
+                reply = f"Unknown command: {base}. Try /help for guidance."
+                colored = color(reply, SETTINGS.red)
         if colored is not None:
             print(colored)
         log(f"letsgo:{reply}")

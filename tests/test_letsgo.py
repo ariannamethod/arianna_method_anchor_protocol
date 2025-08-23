@@ -208,3 +208,16 @@ def test_handle_py_timeout(monkeypatch):
         assert colored.startswith("\033[31m")
     else:
         assert colored is not None
+
+
+def test_handle_bash_executes_script():
+    output, colored = asyncio.run(letsgo.handle_bash("/bash echo hi"))
+    assert output.startswith("hi")
+    assert colored is None
+
+
+def test_format_and_detect_python():
+    formatted = letsgo.format_python("x=1")
+    assert "x = 1" in formatted
+    assert letsgo.looks_like_python("print('ok')")
+    assert not letsgo.looks_like_python("ls")
