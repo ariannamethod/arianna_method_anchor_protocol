@@ -1,6 +1,9 @@
 """Utility functions for Tommy's logic."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+import re
 import sqlite3
 
 from . import tommy as _tommy
@@ -36,3 +39,92 @@ def fetch_context(ts: str, radius: int = 10) -> list[tuple[str, str, str]]:
             (start, end),
         )
         return cur.fetchall()
+
+
+@dataclass
+class Snapshot:
+    """Representation of a daily snapshot."""
+
+    date: datetime
+    summary: str
+    prediction: str | None = None
+    evaluation: str | None = None
+
+
+def _ensure_snapshot_table(conn: sqlite3.Connection) -> None:
+    """Ensure the ``snapshots`` table exists."""
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS snapshots ("
+        "date TEXT PRIMARY KEY, "
+        "summary TEXT, "
+        "prediction TEXT, "
+        "evaluation TEXT)"
+    )
+
+
+def create_daily_snapshot(date: datetime) -> Snapshot:
+    """Aggregate events for a given day into a snapshot.
+
+    Parameters
+    ----------
+    date:
+        Day for which to aggregate events.
+    """
+
+    start = datetime(date.year, date.month, date.day)
+    end = start + timedelta(days=1)
+    with sqlite3.connect(_tommy.DB_PATH, timeout=30) as conn:
+        _ensure_snapshot_table(conn)
+        cur = conn.execute(
+            "SELECT message FROM events WHERE ts >= ? AND ts < ? ORDER BY ts",
+            (start.isoformat(), end.isoformat()),
+        )
+        messages = [row[0] for row in cur.fetchall()]
+        summary = " | ".join(messages)
+        cur = conn.execute(
+            "SELECT prediction, evaluation FROM snapshots WHERE date = ?",
+            (start.date().isoformat(),),
+        )
+        row = cur.fetchone()
+        prediction = row[0] if row else ""
+        evaluation = row[1] if row else ""
+        conn.execute(
+            "INSERT OR REPLACE INTO snapshots (date, summary, prediction, evaluation)"
+            " VALUES (?, ?, ?, ?)",
+            (start.date().isoformat(), summary, prediction, evaluation),
+        )
+    return Snapshot(start, summary, prediction or None, evaluation or None)
+
+
+def compare_with_previous(snapshot_today: Snapshot, snapshot_yesterday: Snapshot) -> str:
+    """Compare two snapshots and evaluate yesterday's prediction."""
+
+    today_count = len(snapshot_today.summary.split(" | ")) if snapshot_today.summary else 0
+    match = re.search(r"\d+", snapshot_yesterday.prediction or "")
+    expected = int(match.group(0)) if match else None
+    if expected is None:
+        evaluation = "no prediction"
+    else:
+        evaluation = f"predicted {expected}, got {today_count}"
+    with sqlite3.connect(_tommy.DB_PATH, timeout=30) as conn:
+        _ensure_snapshot_table(conn)
+        conn.execute(
+            "UPDATE snapshots SET evaluation = ? WHERE date = ?",
+            (evaluation, snapshot_yesterday.date.strftime("%Y-%m-%d")),
+        )
+    return evaluation
+
+
+def predict_tomorrow(snapshot_today: Snapshot) -> str:
+    """Generate a simple forecast for the next day."""
+
+    count = len(snapshot_today.summary.split(" | ")) if snapshot_today.summary else 0
+    prediction = f"{count} events tomorrow"
+    with sqlite3.connect(_tommy.DB_PATH, timeout=30) as conn:
+        _ensure_snapshot_table(conn)
+        conn.execute(
+            "UPDATE snapshots SET prediction = ? WHERE date = ?",
+            (prediction, snapshot_today.date.strftime("%Y-%m-%d")),
+        )
+    return prediction
