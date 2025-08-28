@@ -28,7 +28,7 @@ import shutil
 import shlex
 import textwrap
 import ast
-import tommy
+from tommy import tommy
 
 _NO_COLOR_FLAG = "--no-color"
 USE_COLOR = (
@@ -54,7 +54,6 @@ DATA_DIR = Path.home() / ".letsgo"
 CONFIG_PATH = DATA_DIR / "config"
 
 # Companion chat mode flag
-COMPANION_ACTIVE = False
 
 
 @dataclass
@@ -541,23 +540,7 @@ async def handle_ping(_: str) -> Tuple[str, str | None]:
     return reply, reply
 
 
-async def handle_xplaine(_: str) -> Tuple[str, str | None]:
-    global COMPANION_ACTIVE
-    COMPANION_ACTIVE = True
-    advice = await tommy.xplaine()
-    return advice, advice
-
-
-async def handle_xplaineoff(_: str) -> Tuple[str, str | None]:
-    global COMPANION_ACTIVE
-    COMPANION_ACTIVE = False
-    reply = "companion off"
-    return reply, reply
-
-
 CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
-    "/xplaine": (handle_xplaine, "ask companion"),
-    "/xplaineoff": (handle_xplaineoff, "companion off"),
     "/status": (handle_status, "show system metrics"),
     "/cpu": (handle_cpu, "show CPU load"),
     "/disk": (handle_disk, "disk usage"),
@@ -592,8 +575,6 @@ COMMAND_HELP: Dict[str, str] = {
     "/help": "Usage: /help [command]\nList commands or show detailed help.",
     "/search": "Usage: /search <pattern>\nSearch the command history.",
     "/ping": "Usage: /ping\nReply with pong.",
-    "/xplaine": "Usage: /xplaine\nAsk companion for advice.",
-    "/xplaineoff": "Usage: /xplaineoff\nDisable companion chat.",
 }
 
 COMMAND_HANDLERS: Dict[str, Handler] = {
@@ -665,15 +646,11 @@ async def main() -> None:
         handler = COMMAND_HANDLERS.get(base)
         if handler:
             reply, colored = await handler(user)
-        elif COMPANION_ACTIVE:
+        elif looks_like_python(user):
+            reply, colored = await handle_py(f"/py {user}")
+        else:
             reply = await tommy.chat(user)
             colored = reply
-        else:
-            if looks_like_python(user):
-                reply, colored = await handle_py(f"/py {user}")
-            else:
-                reply = f"Unknown command: {base}. Try /help for guidance."
-                colored = color(reply, SETTINGS.red)
         if colored is not None:
             print(colored)
         log(f"letsgo:{reply}")

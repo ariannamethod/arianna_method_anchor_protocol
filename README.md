@@ -1,6 +1,6 @@
-# Arianna Method Linux Kernel
+# Arianna Method Anchor Protocol Engine
 
-**Arianna Method Linux Kernel (AMLK)** is a deliberately compact operating nucleus engineered from Alpine sources to provide a deterministic base for AI workloads.
+**Arianna Method Anchor Protocol Engine** is a deliberately compact operating nucleus engineered from Alpine sources to provide a deterministic base for AI workloads.
 
 Those who want to try the new kernel firsthand can visit the Telegram bot **Terminal Robot** at [https://t.me/ariannaterminalrobot](https://t.me/ariannaterminalrobot). Additional screenshots and usage examples will appear there later.
 
@@ -130,7 +130,7 @@ The terminal, invoked after login, serves as the shell for Arianna Core.
 	•	Logs: Each session logs to /arianna_core/log/, stamped with UTC.
 	•	max_log_files option in ~/.letsgo/config to limit disk usage.
 	•	History: /arianna_core/log/history persists command history, loaded at startup, updated on exit.
-	•	Tab completion (readline): suggests built-in verbs — /status, /time, /run, /bash, /py, /summarize, /search, /xplaine, /xplaineoff, /help.
+	•	Tab completion (readline): suggests built-in verbs — /status, /time, /run, /bash, /py, /summarize, /search, /help.
 	•	/status: Reports CPU cores, uptime (from /proc/uptime), and current IP.
 	•	/summarize: Searches logs (with regex), prints last five matches; --history searches command history; /search <pattern> finds all matches.
 	•	/time: Prints current UTC.
@@ -138,20 +138,16 @@ The terminal, invoked after login, serves as the shell for Arianna Core.
         •       /bash: Runs a Bash script.
         •       /py: Executes Python code; plain Python snippets are auto-formatted and run even without the /py prefix.
         •       /help: Lists verbs.
-        •       /xplaine: ask companion.
-        •       /xplaineoff: companion off.
-        •       Unrecognized input that is not Python code: echoed back.
+        •       Unrecognized input that is not Python code is passed to Tommy for a reply.
 	•	Structure ready for more advanced NLP (text hooks dispatch to remote models).
 
 Tommy
 
-Tommy is the resident companion embedded in the terminal. He observes the dialogue between the user and letsgo.py, ready to offer guidance when summoned. Every command and reply is recorded, giving him a running context of the session and a memory he can draw from when answering.
+Tommy is the resident companion embedded in the terminal. He observes the dialogue between the user and letsgo.py and is always ready to respond. Every command and reply is recorded, giving him a running context of the session and a memory he can draw from when answering.
 
-Under the hood Tommy writes each event to a SQLite database and JSONL log. When a user requests help, he pulls the most recent entries, isolates the last meaningful command, and composes a prompt that reflects the current state of the terminal. This lightweight log-driven approach keeps his suggestions grounded in real activity.
+Under the hood Tommy writes each event to a SQLite database and JSONL log. After every exchange he condenses the last five interactions into a shared `resonance` stream that future agents can read. This lightweight log-driven approach keeps his suggestions grounded in real activity while seeding a collective memory.
 
 Tommy routes these prompts to the Grok‑3 model through the x.ai API. The API key comes from the `XAI_API_KEY` environment variable, and responses are streamed back asynchronously. By limiting temperature and filtering prompts, he produces concise operational advice instead of chatter.
-
-The companion wakes when `/xplaine` appears and sleeps on `/xplaineoff`. He never invents commands; instead he enumerates available verbs and explains how to proceed. Each interaction is appended to the log so that future sessions retain the story. Tommy’s tone is direct and confident, mirroring the stripped‑down ethos of Arianna Method OS.
 
 Logs timestamped with ISO-8601, using //: comments, for replay or training.
 
