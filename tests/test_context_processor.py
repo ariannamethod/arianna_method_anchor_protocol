@@ -27,3 +27,34 @@ def test_parse_and_store_file(tmp_path, monkeypatch):
     assert "hello world" in result
     hits = engine.query_similar(embed_text("hello world"), top_k=1)
     assert hits and "hello world" in hits[0].content
+
+
+def test_paraphrase_uses_full_text(monkeypatch):
+    class DummyGen:
+        def generate(self, prefix, n, temp):
+            return prefix
+
+    monkeypatch.setattr(cnp, "cg", DummyGen())
+    long_text = "A" * 210 + "END"
+    result = asyncio.run(cnp.paraphrase(long_text, prefix=""))
+    assert "END" in result
+
+
+def test_parse_and_store_file_uses_full_summary(tmp_path, monkeypatch):
+    monkeypatch.setattr(cnp, "CACHE_DB", tmp_path / "cache.db")
+    cnp.init_cache_db()
+    monkeypatch.setattr(cnp, "esn", _DummyESN())
+
+    long_text = "A" * 210 + "END"
+    sample = tmp_path / "sample.txt"
+    sample.write_text(long_text)
+
+    async def fake_paraphrase(text, prefix="Summarize this for kids: "):
+        return text
+
+    monkeypatch.setattr(cnp, "paraphrase", fake_paraphrase)
+    engine = SQLiteVectorStore(tmp_path / "vectors.db")
+    result = asyncio.run(cnp.parse_and_store_file(str(sample), engine=engine))
+
+    summary_line = result.split("Summary: ")[1].split("\nRelevance")[0]
+    assert "END" in summary_line

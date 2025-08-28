@@ -1,6 +1,6 @@
 """Simple SQLite-backed vector store.
 
-This module replaces the old IndianaVectorEngine and persists vectors
+This module replaces the old AriannaMethodVectorEngine and persists vectors
 locally using SQLite. Embeddings are stored as JSON-encoded lists of
 floats. A tiny character-frequency embedding function is provided for
 basic similarity search without external dependencies.

@@ -482,11 +482,10 @@ def load_cache(path: str, max_age: float = 43200) -> Optional[Dict]:
 # Async paraphrase
 async def paraphrase(text: str, prefix: str = "Summarize this for kids: ") -> str:
     temp = 0.7 + chaos_pulse.get() * 0.3
+    snippet = text[:1000]
     try:
         if cg:
-            paraphrased = cg.generate(
-                prefix=prefix + text[:200], n=400, temp=temp
-            ).strip()
+            paraphrased = cg.generate(prefix=prefix + snippet, n=400, temp=temp).strip()
             if not paraphrased or len(paraphrased) < 50:
                 raise ValueError("Paraphrase too short")
             markov.update_chain(paraphrased)
@@ -500,7 +499,7 @@ async def paraphrase(text: str, prefix: str = "Summarize this for kids: ") -> st
         raise ValueError("No CharGen")
     except (RuntimeError, ValueError) as e:
         log_event(f"Paraphrase failed: {str(e)}", "error")
-        return text + " Ether’s silent, Wulf persists! 🌌"
+        return snippet + " Ether’s silent, Wulf persists! 🌌"
 
 
 # FileHandler
@@ -985,9 +984,7 @@ async def parse_and_store_file(
         relevance = cached["relevance"]
     else:
         tags = markov.generate(length=5, start=os.path.basename(path))
-        summary = await paraphrase(
-            f"File {os.path.basename(path)} content: {text[:200]}"
-        )
+        summary = await paraphrase(f"File {os.path.basename(path)} content: {text}")
         save_cache(
             path,
             await handler._detect_extension(path),
@@ -1068,7 +1065,7 @@ async def create_repo_snapshot(
 # CLI для теста
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Indiana File Handler: Neural chaos shredder! #AriannaMethod 🌩️"
+        description="ariannamethod File Handler: Neural chaos shredder! #AriannaMethod 🌩️"
     )
     parser.add_argument("--path", type=str, help="Path to file for parsing")
     parser.add_argument("--snapshot", action="store_true", help="Create repo snapshot")
