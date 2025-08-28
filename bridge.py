@@ -40,7 +40,8 @@ import uvicorn
 
 PROMPT = ">>"
 START_TIMEOUT = float(os.getenv("LETSGO_START_TIMEOUT", "5"))
-PROMPT_TIMEOUT = float(os.getenv("LETSGO_PROMPT_TIMEOUT", "5"))
+# allow longer-running commands like file processing or external API calls
+PROMPT_TIMEOUT = float(os.getenv("LETSGO_PROMPT_TIMEOUT", "30"))
 
 logger = logging.getLogger(__name__)
 
@@ -198,8 +199,8 @@ def _check_rate(client: str) -> None:
 
 async def _get_user_proc(user_id: int) -> LetsGoProcess:
     proc = user_sessions.get(user_id)
-    if not proc:
-        proc = LetsGoProcess()
+    if not proc or proc.proc is None:
+        proc = proc or LetsGoProcess()
         await proc.start()
         user_sessions[user_id] = proc
     _user_last_active[user_id] = time.time()
