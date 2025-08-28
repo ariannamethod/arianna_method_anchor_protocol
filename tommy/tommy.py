@@ -114,13 +114,31 @@ async def _mood_echo() -> str:
 
 
 async def chat(message: str) -> str:
+    from .tommy_logic import fetch_context
+
     try:
         from letsgo import CORE_COMMANDS
 
         commands = ", ".join(sorted(CORE_COMMANDS.keys()))
     except Exception:
         commands = ""
-    prompt = f"Available commands: {commands}\nUser: {message}\nTommy:"
+
+    context_block = ""
+    citations = re.findall(r"@([0-9T:-]+)", message)
+    if citations:
+        blocks: list[str] = []
+        for ts in citations:
+            ctx = fetch_context(ts)
+            if ctx:
+                formatted = "\n".join(f"[{t}] {m}" for t, _, m in ctx)
+                blocks.append(formatted)
+        if blocks:
+            context_block = "Relevant context:\n" + "\n--\n".join(blocks) + "\n\n"
+
+    prompt = (
+        f"{context_block}Available commands: {commands}\n"
+        f"User: {message}\nTommy:"
+    )
     try:
         response = await query_grok3(prompt)
         code_match = re.search(r"```python\n(.*?)\n```", response, re.DOTALL)
