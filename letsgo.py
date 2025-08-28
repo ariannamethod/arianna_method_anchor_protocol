@@ -29,6 +29,7 @@ import shlex
 import textwrap
 import ast
 from tommy import tommy
+from arianna_utils.context_neural_processor import parse_and_store_file
 
 _NO_COLOR_FLAG = "--no-color"
 USE_COLOR = (
@@ -481,6 +482,18 @@ async def handle_py(user: str) -> Tuple[str, str | None]:
     return reply, reply
 
 
+async def handle_file(user: str) -> Tuple[str, str | None]:
+    path = user.partition(" ")[2].strip()
+    if not path:
+        reply = "Usage: /file <path>"
+        return reply, reply
+    try:
+        result = await parse_and_store_file(path)
+    except Exception as e:
+        result = f"Error: {e}"
+    return result, result
+
+
 async def handle_clear(_: str) -> Tuple[str, str | None]:
     os.system("clear")
     reply = "Cleared."
@@ -549,6 +562,7 @@ CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
     "/run": (handle_run, "shell command"),
     "/bash": (handle_bash, "bash script"),
     "/py": (handle_py, "execute Python code"),
+    "/file": (handle_file, "process a file"),
     "/summarize": (handle_summarize, "log entries"),
     "/clear": (handle_clear, "clear the terminal"),
     "/history": (handle_history, "command history"),
@@ -566,6 +580,7 @@ COMMAND_HELP: Dict[str, str] = {
     "/run": "Usage: /run <command>\nRun a shell command and return its output.",
     "/bash": "Usage: /bash <script>\nExecute a Bash script.",
     "/py": "Usage: /py <code>\nExecute Python code and print the result.",
+    "/file": "Usage: /file <path>\nProcess a file with the neural processor.",
     "/summarize": (
         "Usage: /summarize [--history] [limit]"
         "\nSummarize recent log entries or command history."
