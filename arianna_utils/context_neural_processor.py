@@ -856,7 +856,7 @@ async def parse_and_store_file(
     handler: FileHandler | None = None,
     engine=None,
 ) -> str:
-    from utils.vector_engine import IndianaVectorEngine
+    from .vector_engine import IndianaVectorEngine
     handler = handler or FileHandler()
 
     # Извлекаем содержимое файла без участия динамических весов
