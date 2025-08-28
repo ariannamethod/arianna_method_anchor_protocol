@@ -1,0 +1,17 @@
+# Input dependencies for pip-compile
+fastapi
+uvicorn[standard]
+python-telegram-bot
+python-multipart
+aiohttp
+numpy
+beautifulsoup4
+pypdf
+python-docx
+striprtf
+textract
+odfpy
+pillow
+pandas
+pyyaml
+rarfile
