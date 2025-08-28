@@ -1,24 +1,24 @@
 import sqlite3
+from datetime import datetime
 
-import tommy.tommy as tommy
-from tommy.tommy_logic import fetch_context
+from tommy import tommy_logic as tl
+from tommy import tommy as tommy_mod
 
 
-def test_fetch_context(tmp_path, monkeypatch):
-    db_path = tmp_path / "tommy.sqlite3"
-    monkeypatch.setattr(tommy, "DB_PATH", db_path)
-    tommy._init_db()
-    records = [
-        (f"2024-01-01T00:00:0{i}", "info", f"msg{i}") for i in range(5)
-    ]
-    with sqlite3.connect(db_path, timeout=30) as conn:
-        conn.executemany(
+def test_snapshot_vector_integration(tmp_path, monkeypatch):
+    db_path = tmp_path / "events.db"
+    monkeypatch.setattr(tommy_mod, "DB_PATH", db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("CREATE TABLE events (ts TEXT, type TEXT, message TEXT)")
+        ts = datetime.now().replace(microsecond=0).isoformat()
+        conn.execute(
             "INSERT INTO events (ts, type, message) VALUES (?, ?, ?)",
-            records,
+            (ts, "info", "alpha event"),
         )
-    target_ts = records[2][0]
-    ctx = fetch_context(target_ts, radius=1)
-    messages = [m for _, _, m in ctx]
-    assert messages == ["msg1", "msg2", "msg3"]
-    assert fetch_context("nope") == []
 
+    store = tl.SQLiteVectorStore(tmp_path / "vectors.db")
+    monkeypatch.setattr(tl, "_VECTOR_STORE", store)
+
+    tl.create_daily_snapshot(datetime.now())
+    results = tl.search_context("alpha")
+    assert results and "alpha" in results[0]

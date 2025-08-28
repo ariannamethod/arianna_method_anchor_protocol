@@ -26,6 +26,7 @@ except ImportError:  # pragma: no cover - optional
 try:
     import numpy as np
 except ImportError:  # pragma: no cover - optional
+
     class _NP:  # minimal placeholder to allow import
         class random:  # type: ignore
             @staticmethod
@@ -60,6 +61,7 @@ except ImportError:  # pragma: no cover - optional
     np = _NP()  # type: ignore
 
 import sqlite3
+
 try:
     from char_gen import CharGen  # Assume from SUPERTIME
 except ImportError:
@@ -72,6 +74,8 @@ except ImportError:  # pragma: no cover - optional
 
     class PdfReadError(Exception):
         pass
+
+
 try:
     import docx
 except ImportError:
@@ -115,6 +119,7 @@ except ImportError:
     class RarError(Exception):
         pass
 
+
 logger = logging.getLogger(__name__)
 
 # Глобальные настройки
@@ -147,6 +152,7 @@ def apply_pulse(weights: List[float], pulse: float) -> List[float]:
     total = sum(exps) or 1.0
     return [e / total for e in exps]
 
+
 _SEED_CORPUS = """
 mars starship optimus robots xai resonance chaos wulf multiplanetary arcadia
 42 engines ignite elon musk space humanity survives science fiction reality
@@ -154,20 +160,27 @@ shred void pulse storm nikole spark civilization self sustaining grok xai
 file process data extract summarize chaos tags pulse shred neural cosmos
 """
 
+
 # Mini-Markov с n-gram и semantic boost
 class MiniMarkov:
     def __init__(self, seed_text: str, n: int = 3, pulse: float = 0.5):
         self.chain: Dict[Tuple[str, ...], Dict[str, float]] = {}
-        self.words = re.findall(r'\w+', seed_text.lower())
+        self.words = re.findall(r"\w+", seed_text.lower())
         self.n = min(max(1, n), 4)
         self.pulse = pulse
         self.build_chain()
 
     def build_chain(self):
-        keywords = {"mars": 0.3, "starship": 0.3, "xai": 0.2, "chaos": 0.15, "wulf": 0.15}
+        keywords = {
+            "mars": 0.3,
+            "starship": 0.3,
+            "xai": 0.2,
+            "chaos": 0.15,
+            "wulf": 0.15,
+        }
         ban_ngrams = {"как бы", "в общем", "на деле"}
         for i in range(len(self.words) - self.n):
-            state = tuple(self.words[i:i + self.n])
+            state = tuple(self.words[i : i + self.n])
             next_word = self.words[i + self.n]
             if any(ban in " ".join(state + (next_word,)).lower() for ban in ban_ngrams):
                 continue
@@ -177,11 +190,17 @@ class MiniMarkov:
             self.chain[state][next_word] = self.chain[state].get(next_word, 0) + weight
 
     def update_chain(self, new_text: str):
-        words = re.findall(r'\w+', new_text.lower())
-        keywords = {"mars": 0.3, "starship": 0.3, "xai": 0.2, "chaos": 0.15, "wulf": 0.15}
+        words = re.findall(r"\w+", new_text.lower())
+        keywords = {
+            "mars": 0.3,
+            "starship": 0.3,
+            "xai": 0.2,
+            "chaos": 0.15,
+            "wulf": 0.15,
+        }
         ban_ngrams = {"как бы", "в общем", "на деле"}
         for i in range(len(words) - self.n):
-            state = tuple(words[i:i + self.n])
+            state = tuple(words[i : i + self.n])
             next_word = words[i + self.n]
             if any(ban in " ".join(state + (next_word,)).lower() for ban in ban_ngrams):
                 continue
@@ -195,7 +214,11 @@ class MiniMarkov:
         if not self.chain:
             return "No tags, Wulf waits in silence. 🌌"
         start_words = start.lower().split() if start else [random.choice(self.words)]
-        state = tuple(start_words[-self.n:] if len(start_words) >= self.n else start_words + [random.choice(self.words)] * (self.n - len(start_words)))
+        state = tuple(
+            start_words[-self.n :]
+            if len(start_words) >= self.n
+            else start_words + [random.choice(self.words)] * (self.n - len(start_words))
+        )
         result = []
         for _ in range(length):
             if state not in self.chain or not self.chain[state]:
@@ -210,24 +233,42 @@ class MiniMarkov:
                 break
         return f"{''.join(result).capitalize()} (pulse: {self.pulse:.2f})"
 
+
 # MiniESN с адаптивным reservoir и training
 class MiniESN:
-    def __init__(self, input_size: int = 512, base_hidden_size: int = 512, output_size: int = 14):
+    def __init__(
+        self, input_size: int = 512, base_hidden_size: int = 512, output_size: int = 14
+    ):
         self.input_size = input_size
         self.base_hidden_size = base_hidden_size
         self.output_size = output_size
         self.ext_map = {
-            '.pdf': 0, '.txt': 1, '.md': 2, '.docx': 3, '.rtf': 4, '.doc': 5,
-            '.odt': 6, '.zip': 7, '.tar': 8, '.png': 9, '.html': 10, '.json': 11,
-            '.csv': 12, '.yaml': 13
+            ".pdf": 0,
+            ".txt": 1,
+            ".md": 2,
+            ".docx": 3,
+            ".rtf": 4,
+            ".doc": 5,
+            ".odt": 6,
+            ".zip": 7,
+            ".tar": 8,
+            ".png": 9,
+            ".html": 10,
+            ".json": 11,
+            ".csv": 12,
+            ".yaml": 13,
         }
         self.rev_map = {v: k for k, v in self.ext_map.items()}
         self.state = None
         self.leaky_rate = 0.9
 
     def _init_reservoir(self, content_size: int):
-        hidden_size = min(self.base_hidden_size * 2, max(self.base_hidden_size, content_size // 1000))
-        self.leaky_rate = 0.8 + min(0.15, content_size / 1_000_000)  # Dynamic leaky rate
+        hidden_size = min(
+            self.base_hidden_size * 2, max(self.base_hidden_size, content_size // 1000)
+        )
+        self.leaky_rate = 0.8 + min(
+            0.15, content_size / 1_000_000
+        )  # Dynamic leaky rate
         self.W_in = np.random.randn(hidden_size, self.input_size) * 0.1
         W = np.random.randn(hidden_size, hidden_size) * 0.9
         try:
@@ -272,6 +313,7 @@ class MiniESN:
         if random.random() < 0.1:  # 10% chance to simulate training
             self.W_out += np.random.randn(self.output_size, len(self.state)) * 0.01
 
+
 # ChaosPulse с robust sentiment
 class ChaosPulse:
     def __init__(self):
@@ -282,15 +324,27 @@ class ChaosPulse:
     def update(self, text: str) -> float:
         if time.time() - self.last_update < 43200:  # 12h cache
             return self.pulse
-        keywords = {"success": 0.2, "error": -0.25, "mars": 0.15, "data": 0.1, "failure": -0.3, "chaos": 0.1}
-        pulse_change = sum(keywords.get(word, 0) for word in re.findall(r'\w+', text.lower()))
-        self.pulse = max(0.1, min(0.9, self.pulse + pulse_change + random.uniform(-0.05, 0.05)))
+        keywords = {
+            "success": 0.2,
+            "error": -0.25,
+            "mars": 0.15,
+            "data": 0.1,
+            "failure": -0.3,
+            "chaos": 0.1,
+        }
+        pulse_change = sum(
+            keywords.get(word, 0) for word in re.findall(r"\w+", text.lower())
+        )
+        self.pulse = max(
+            0.1, min(0.9, self.pulse + pulse_change + random.uniform(-0.05, 0.05))
+        )
         self.last_update = time.time()
-        self.cache['last_pulse'] = self.pulse
+        self.cache["last_pulse"] = self.pulse
         return self.pulse
 
     def get(self) -> float:
         return self.pulse
+
 
 # BioOrchestra с SixthSense
 class BioOrchestra:
@@ -305,14 +359,22 @@ class BioOrchestra:
         sense = self.sense.foresee(intensity)
         return pulse, quiver, sense
 
+
 class BloodFlux:
     def __init__(self, iron: float):
         self.iron = iron
         self.pulse = 0.0
 
     def circulate(self, agitation: float) -> float:
-        self.pulse = max(0.0, min(self.pulse * 0.9 + agitation * self.iron + random.uniform(-0.03, 0.03), 1.0))
+        self.pulse = max(
+            0.0,
+            min(
+                self.pulse * 0.9 + agitation * self.iron + random.uniform(-0.03, 0.03),
+                1.0,
+            ),
+        )
         return self.pulse
+
 
 class SkinSheath:
     def __init__(self, sensitivity: float):
@@ -320,23 +382,31 @@ class SkinSheath:
         self.quiver = 0.0
 
     def ripple(self, impact: float) -> float:
-        self.quiver = max(0.0, min(impact * self.sensitivity + random.uniform(-0.05, 0.05), 1.0))
+        self.quiver = max(
+            0.0, min(impact * self.sensitivity + random.uniform(-0.05, 0.05), 1.0)
+        )
         return self.quiver
+
 
 class SixthSense:
     def __init__(self):
         self.chaos = 0.0
 
     def foresee(self, intensity: float) -> float:
-        self.chaos = max(0.0, min(self.chaos * 0.95 + intensity * 0.2 + random.uniform(-0.02, 0.02), 1.0))
+        self.chaos = max(
+            0.0,
+            min(self.chaos * 0.95 + intensity * 0.2 + random.uniform(-0.02, 0.02), 1.0),
+        )
         return self.chaos
+
 
 # File Relevance Scoring
 def compute_relevance(text: str) -> float:
-    seed_words = set(re.findall(r'\w+', _SEED_CORPUS.lower()))
-    text_words = set(re.findall(r'\w+', text.lower()))
+    seed_words = set(re.findall(r"\w+", _SEED_CORPUS.lower()))
+    text_words = set(re.findall(r"\w+", text.lower()))
     intersection = seed_words & text_words
     return len(intersection) / max(len(text_words), 1) if text_words else 0.0
+
 
 # Инициализация
 chaos_pulse = ChaosPulse()
@@ -356,7 +426,8 @@ cg = (
 # SQLite кэш
 def init_cache_db():
     with sqlite3.connect(CACHE_DB) as conn:
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS context_neural_cache (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 path TEXT UNIQUE,
@@ -367,46 +438,70 @@ def init_cache_db():
                 summary TEXT,
                 timestamp REAL
             )
-        """)
-        conn.execute("DELETE FROM context_neural_cache WHERE timestamp < ?", (time.time() - 7 * 86400,))  # Cleanup old
+        """
+        )
+        conn.execute(
+            "DELETE FROM context_neural_cache WHERE timestamp < ?",
+            (time.time() - 7 * 86400,),
+        )  # Cleanup old
         conn.commit()
 
 
 init_cache_db()
 
-def save_cache(path: str, ext: str, hash: str, tags: str, relevance: float, summary: str):
+
+def save_cache(
+    path: str, ext: str, hash: str, tags: str, relevance: float, summary: str
+):
     with sqlite3.connect(CACHE_DB) as conn:
         conn.execute(
             "INSERT OR REPLACE INTO context_neural_cache (path, ext, hash, tags, relevance, summary, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (path, ext, hash, tags, relevance, summary, time.time())
+            (path, ext, hash, tags, relevance, summary, time.time()),
         )
         conn.commit()
+
 
 def load_cache(path: str, max_age: float = 43200) -> Optional[Dict]:
     with sqlite3.connect(CACHE_DB) as conn:
         cursor = conn.execute(
             "SELECT ext, hash, tags, relevance, summary FROM context_neural_cache WHERE path = ? AND timestamp > ?",
-            (path, time.time() - max_age)
+            (path, time.time() - max_age),
         )
         result = cursor.fetchone()
         if result:
-            return {"ext": result[0], "hash": result[1], "tags": result[2], "relevance": result[3], "summary": result[4]}
+            return {
+                "ext": result[0],
+                "hash": result[1],
+                "tags": result[2],
+                "relevance": result[3],
+                "summary": result[4],
+            }
         return None
+
 
 # Async paraphrase
 async def paraphrase(text: str, prefix: str = "Summarize this for kids: ") -> str:
     temp = 0.7 + chaos_pulse.get() * 0.3
     try:
         if cg:
-            paraphrased = cg.generate(prefix=prefix + text[:200], n=400, temp=temp).strip()
+            paraphrased = cg.generate(
+                prefix=prefix + text[:200], n=400, temp=temp
+            ).strip()
             if not paraphrased or len(paraphrased) < 50:
                 raise ValueError("Paraphrase too short")
             markov.update_chain(paraphrased)
-            return paraphrased + random.choice([" Shredding the cosmos! 🌌", " File pulse ignited! 🚀", " Wulf’s chaos alive! 🌩️"])
+            return paraphrased + random.choice(
+                [
+                    " Shredding the cosmos! 🌌",
+                    " File pulse ignited! 🚀",
+                    " Wulf’s chaos alive! 🌩️",
+                ]
+            )
         raise ValueError("No CharGen")
     except (RuntimeError, ValueError) as e:
         log_event(f"Paraphrase failed: {str(e)}", "error")
         return text + " Ether’s silent, Wulf persists! 🌌"
+
 
 # FileHandler
 class FileHandler:
@@ -422,36 +517,38 @@ class FileHandler:
         self._register_defaults()
 
     def _register_defaults(self) -> None:
-        self._extractors.update({
-            ".pdf": self._extract_pdf,
-            ".txt": self._extract_txt,
-            ".md": self._extract_txt,
-            ".docx": self._extract_docx,
-            ".rtf": self._extract_rtf,
-            ".doc": self._extract_doc,
-            ".odt": self._extract_odt,
-            ".zip": self._extract_zip,
-            ".rar": self._extract_rar,
-            ".tar": self._extract_tar,
-            ".tar.gz": self._extract_tar,
-            ".tgz": self._extract_tar,
-            ".png": self._extract_image,
-            ".jpg": self._extract_image,
-            ".jpeg": self._extract_image,
-            ".gif": self._extract_image,
-            ".bmp": self._extract_image,
-            ".webp": self._extract_image,
-            ".html": self._extract_html,
-            ".xml": self._extract_html,
-            ".json": self._extract_json,
-            ".csv": self._extract_csv,
-            ".yaml": self._extract_yaml
-        })
+        self._extractors.update(
+            {
+                ".pdf": self._extract_pdf,
+                ".txt": self._extract_txt,
+                ".md": self._extract_txt,
+                ".docx": self._extract_docx,
+                ".rtf": self._extract_rtf,
+                ".doc": self._extract_doc,
+                ".odt": self._extract_odt,
+                ".zip": self._extract_zip,
+                ".rar": self._extract_rar,
+                ".tar": self._extract_tar,
+                ".tar.gz": self._extract_tar,
+                ".tgz": self._extract_tar,
+                ".png": self._extract_image,
+                ".jpg": self._extract_image,
+                ".jpeg": self._extract_image,
+                ".gif": self._extract_image,
+                ".bmp": self._extract_image,
+                ".webp": self._extract_image,
+                ".html": self._extract_html,
+                ".xml": self._extract_html,
+                ".json": self._extract_json,
+                ".csv": self._extract_csv,
+                ".yaml": self._extract_yaml,
+            }
+        )
 
     def _truncate(self, text: str) -> str:
         text = text.strip()
         if len(text) > self.max_text_size:
-            return text[:self.max_text_size] + "\n[Truncated]"
+            return text[: self.max_text_size] + "\n[Truncated]"
         return text
 
     async def _detect_extension(self, path: str) -> str:
@@ -636,7 +733,9 @@ class FileHandler:
                     esn.update(text, chaos_pulse.get())
                     return self._truncate(text) if text.strip() else "[CSV empty]"
                 except (OSError, ParserError, ValueError) as e:
-                    log_event(f"CSV error ({os.path.basename(path)}): {str(e)}", "error")
+                    log_event(
+                        f"CSV error ({os.path.basename(path)}): {str(e)}", "error"
+                    )
                     return f"[CSV error: {str(e)}]"
             except (OSError, ParserError, ValueError) as e:
                 log_event(f"CSV error ({os.path.basename(path)}): {str(e)}", "error")
@@ -750,8 +849,14 @@ class FileHandler:
                             total_size += info.file_size
                             ext = await self._detect_extension(info.filename)
                             extractor = self._extractors.get(ext)
-                            if extractor and extractor not in {self._extract_zip, self._extract_tar, self._extract_rar}:
-                                with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                            if extractor and extractor not in {
+                                self._extract_zip,
+                                self._extract_tar,
+                                self._extract_rar,
+                            }:
+                                with tempfile.NamedTemporaryFile(
+                                    delete=False, suffix=ext
+                                ) as tmp:
                                     tmp.write(data)
                                     tmp.flush()
                                     text = await extractor(tmp.name)
@@ -771,7 +876,9 @@ class FileHandler:
                 try:
                     return await self._extract_zip(path)
                 except (zipfile.BadZipFile, OSError):
-                    log_event(f"RAR error ({os.path.basename(path)}): {str(e)}", "error")
+                    log_event(
+                        f"RAR error ({os.path.basename(path)}): {str(e)}", "error"
+                    )
                     return f"[RAR error: {str(e)}]"
 
     async def _extract_tar(self, path: str) -> str:
@@ -849,19 +956,23 @@ class FileHandler:
         return await extractor(path)
 
     async def extract_batch(self, paths: List[str]) -> List[str]:
-        return await asyncio.gather(*(self.extract_async(p) for p in paths), return_exceptions=True)
+        return await asyncio.gather(
+            *(self.extract_async(p) for p in paths), return_exceptions=True
+        )
+
 
 async def parse_and_store_file(
     path: str,
     handler: FileHandler | None = None,
     engine=None,
 ) -> str:
-    from .vector_engine import IndianaVectorEngine
+    from .vector_store import SQLiteVectorStore, embed_text
+
     handler = handler or FileHandler()
 
     # Извлекаем содержимое файла без участия динамических весов
     text = await handler.extract_async(path)
-    engine = engine or IndianaVectorEngine()
+    engine = engine or SQLiteVectorStore()
 
     # Кэш и релевантность
     with open(path, "rb") as f:
@@ -874,8 +985,17 @@ async def parse_and_store_file(
         relevance = cached["relevance"]
     else:
         tags = markov.generate(length=5, start=os.path.basename(path))
-        summary = await paraphrase(f"File {os.path.basename(path)} content: {text[:200]}")
-        save_cache(path, await handler._detect_extension(path), file_hash, tags, relevance, summary)
+        summary = await paraphrase(
+            f"File {os.path.basename(path)} content: {text[:200]}"
+        )
+        save_cache(
+            path,
+            await handler._detect_extension(path),
+            file_hash,
+            tags,
+            relevance,
+            summary,
+        )
 
     # Обновление нейронок
     chaos_pulse.update(text)
@@ -884,14 +1004,20 @@ async def parse_and_store_file(
 
     # Vector store
     try:
-        content = f"FILE {os.path.basename(path)} TAGS: {tags}\nSUMMARY: {summary}\nRELEVANCE: {relevance:.2f}\nTEXT: {text}"
-        await engine.add_memory("document", content, role="journal")
+        content = (
+            f"FILE {os.path.basename(path)} TAGS: {tags}\n"
+            f"SUMMARY: {summary}\nRELEVANCE: {relevance:.2f}\nTEXT: {text}"
+        )
+        embedding = embed_text(content)
+        engine.add_memory("document", content, embedding)
     except (RuntimeError, OSError, ValueError) as e:
         log_event(f"Vector store failed: {str(e)}", "error")
 
     # Easter egg
     if random.random() < 0.02 or relevance > 0.5:
-        summary += "\nP.S. xAI’s chaos shreds this file! Mars vibes rule! #AriannaMethod"
+        summary += (
+            "\nP.S. xAI’s chaos shreds this file! Mars vibes rule! #AriannaMethod"
+        )
 
     pulse, quiver, sense = bio.enhance(relevance + len(text) / 1000)
     log_event(
@@ -899,7 +1025,10 @@ async def parse_and_store_file(
     )
     return f"{text}\n\nTags: {tags}\nSummary: {summary}\nRelevance: {relevance:.2f}"
 
-async def create_repo_snapshot(base_path: str = ".", out_path: str = REPO_SNAPSHOT_PATH) -> None:
+
+async def create_repo_snapshot(
+    base_path: str = ".", out_path: str = REPO_SNAPSHOT_PATH
+) -> None:
     handler = FileHandler()
     lines = []
     async with handler._semaphore:
@@ -931,11 +1060,16 @@ async def create_repo_snapshot(base_path: str = ".", out_path: str = REPO_SNAPSH
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(sorted(lines)))
     pulse, quiver, sense = bio.enhance(len(lines) / 10)
-    log_event(f"Repo snapshot created: {out_path} ({len(lines)} files, pulse={pulse:.2f}, sense={sense:.2f})")
+    log_event(
+        f"Repo snapshot created: {out_path} ({len(lines)} files, pulse={pulse:.2f}, sense={sense:.2f})"
+    )
+
 
 # CLI для теста
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Indiana File Handler: Neural chaos shredder! #AriannaMethod 🌩️")
+    parser = argparse.ArgumentParser(
+        description="Indiana File Handler: Neural chaos shredder! #AriannaMethod 🌩️"
+    )
     parser.add_argument("--path", type=str, help="Path to file for parsing")
     parser.add_argument("--snapshot", action="store_true", help="Create repo snapshot")
     args = parser.parse_args()

@@ -1,4 +1,5 @@
 """Utility functions for Tommy's logic."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,6 +8,10 @@ import re
 import sqlite3
 
 from . import tommy as _tommy
+from arianna_utils.vector_store import SQLiteVectorStore, embed_text
+
+# Global vector store located alongside other Tommy databases
+_VECTOR_STORE = SQLiteVectorStore(_tommy.LOG_DIR / "vectors.db")
 
 
 def fetch_context(ts: str, radius: int = 10) -> list[tuple[str, str, str]]:
@@ -39,6 +44,21 @@ def fetch_context(ts: str, radius: int = 10) -> list[tuple[str, str, str]]:
             (start, end),
         )
         return cur.fetchall()
+
+
+def search_context(query: str, top_k: int = 5) -> list[str]:
+    """Return stored messages most similar to ``query``.
+
+    Parameters
+    ----------
+    query:
+        Free text to embed and compare against stored memories.
+    top_k:
+        Maximum number of results to return.
+    """
+    embedding = embed_text(query)
+    hits = _VECTOR_STORE.query_similar(embedding, top_k)
+    return [h.content for h in hits]
 
 
 @dataclass
@@ -94,13 +114,24 @@ def create_daily_snapshot(date: datetime) -> Snapshot:
             " VALUES (?, ?, ?, ?)",
             (start.date().isoformat(), summary, prediction, evaluation),
         )
+
+    # Index snapshot summary and individual messages for similarity search
+    for msg in messages:
+        _VECTOR_STORE.add_memory("event", msg, embed_text(msg))
+    if summary:
+        _VECTOR_STORE.add_memory("snapshot", summary, embed_text(summary))
+
     return Snapshot(start, summary, prediction or None, evaluation or None)
 
 
-def compare_with_previous(snapshot_today: Snapshot, snapshot_yesterday: Snapshot) -> str:
+def compare_with_previous(
+    snapshot_today: Snapshot, snapshot_yesterday: Snapshot
+) -> str:
     """Compare two snapshots and evaluate yesterday's prediction."""
 
-    today_count = len(snapshot_today.summary.split(" | ")) if snapshot_today.summary else 0
+    today_count = (
+        len(snapshot_today.summary.split(" | ")) if snapshot_today.summary else 0
+    )
     match = re.search(r"\d+", snapshot_yesterday.prediction or "")
     expected = int(match.group(0)) if match else None
     if expected is None:
