@@ -3,7 +3,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import sqlite3
 
@@ -90,11 +90,31 @@ def update_resonance(agent: str = "tommy") -> None:
         cur = conn.execute("SELECT message FROM events ORDER BY rowid DESC LIMIT 5")
         rows = cur.fetchall()[::-1]
     summary = " | ".join(r[0] for r in rows)
+    impression = _fetch_latest_evaluation()
+    if impression:
+        summary = f"{summary} || {impression}"
     with sqlite3.connect(RESONANCE_DB_PATH, timeout=30) as conn:
         conn.execute(
             "INSERT INTO resonance (ts, agent, summary) VALUES (?, ?, ?)",
             (datetime.now().isoformat(), agent, summary),
         )
+
+
+def _fetch_latest_evaluation() -> str:
+    """Return the most recent snapshot evaluation, if any."""
+
+    try:
+        with sqlite3.connect(DB_PATH, timeout=30) as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS snapshots (date TEXT PRIMARY KEY, summary TEXT, prediction TEXT, evaluation TEXT)"
+            )
+            cur = conn.execute(
+                "SELECT evaluation FROM snapshots WHERE evaluation != '' ORDER BY date DESC LIMIT 1"
+            )
+            row = cur.fetchone()
+            return row[0] if row else ""
+    except Exception:
+        return ""
 
 
 async def _mood_echo() -> str:
@@ -205,3 +225,34 @@ async def query_grok3(user_prompt: str, temp: float = 0.8) -> str:
             if attempt == 2:
                 raise
             await asyncio.sleep(2**attempt)
+
+
+async def run_daily_tasks() -> None:
+    """Execute end-of-day snapshot, evaluation, and prediction tasks."""
+
+    from .tommy_logic import (
+        Snapshot,
+        compare_with_previous,
+        create_daily_snapshot,
+        predict_tomorrow,
+    )
+
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    snapshot_today = create_daily_snapshot(today)
+    yesterday_date = today - timedelta(days=1)
+    with sqlite3.connect(DB_PATH, timeout=30) as conn:
+        cur = conn.execute(
+            "SELECT summary, prediction, evaluation FROM snapshots WHERE date = ?",
+            (yesterday_date.strftime("%Y-%m-%d"),),
+        )
+        row = cur.fetchone()
+    if row:
+        snapshot_yesterday = Snapshot(
+            yesterday_date,
+            row[0] or "",
+            row[1] or "",
+            row[2] or "",
+        )
+        compare_with_previous(snapshot_today, snapshot_yesterday)
+    predict_tomorrow(snapshot_today)
+    update_resonance()
