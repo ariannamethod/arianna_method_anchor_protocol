@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import time
 from pathlib import Path
@@ -38,6 +39,10 @@ from letsgo import CORE_COMMANDS
 import uvicorn
 
 PROMPT = ">>"
+START_TIMEOUT = float(os.getenv("LETSGO_START_TIMEOUT", "5"))
+PROMPT_TIMEOUT = float(os.getenv("LETSGO_PROMPT_TIMEOUT", "5"))
+
+logger = logging.getLogger(__name__)
 
 MAIN_COMMANDS = [cmd for cmd in ("/status", "/time", "/help") if cmd in CORE_COMMANDS]
 
@@ -64,25 +69,39 @@ class LetsGoProcess:
         self._lock = asyncio.Lock()
 
     async def start(self) -> None:
-        self.proc = await asyncio.create_subprocess_exec(
-            "python",
-            "letsgo.py",
-            "--no-color",
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-        )
+        try:
+            self.proc = await asyncio.wait_for(
+                asyncio.create_subprocess_exec(
+                    "python",
+                    "letsgo.py",
+                    "--no-color",
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                ),
+                timeout=START_TIMEOUT,
+            )
+        except Exception as exc:  # pragma: no cover - startup failure
+            logger.error("failed to start letsgo.py: %s", exc)
+            raise
         await self._read_until_prompt()
 
     async def _read_until_prompt(self) -> None:
         if not self.proc or not self.proc.stdout:
             return
         prompt_bytes = (PROMPT + " ").encode()
-        buffer = b""
-        while not buffer.endswith(prompt_bytes):
-            chunk = await self.proc.stdout.read(1)
-            if not chunk:
-                break
-            buffer += chunk
+        try:
+            await asyncio.wait_for(
+                self.proc.stdout.readuntil(prompt_bytes),
+                timeout=PROMPT_TIMEOUT,
+            )
+        except (
+            asyncio.TimeoutError,
+            asyncio.LimitOverrunError,
+            asyncio.IncompleteReadError,
+        ) as exc:
+            logger.error("prompt not received: %s", exc)
+            await self.stop()
+            raise
 
     async def run(self, cmd: str) -> str:
         if not self.proc or not self.proc.stdin or not self.proc.stdout:
@@ -91,12 +110,19 @@ class LetsGoProcess:
             self.proc.stdin.write((cmd + "\n").encode())
             await self.proc.stdin.drain()
             prompt_bytes = (PROMPT + " ").encode()
-            buffer = b""
-            while not buffer.endswith(prompt_bytes):
-                chunk = await self.proc.stdout.read(1)
-                if not chunk:
-                    break
-                buffer += chunk
+            try:
+                buffer = await asyncio.wait_for(
+                    self.proc.stdout.readuntil(prompt_bytes),
+                    timeout=PROMPT_TIMEOUT,
+                )
+            except asyncio.LimitOverrunError as exc:
+                logger.error("output limit exceeded for %s: %s", cmd, exc)
+                await self.stop()
+                raise
+            except (asyncio.TimeoutError, asyncio.IncompleteReadError) as exc:
+                logger.error("prompt not received for %s: %s", cmd, exc)
+                await self.stop()
+                raise RuntimeError("process unresponsive")
             text = buffer.decode()
             if text.endswith(PROMPT + " "):
                 text = text[: -len(PROMPT) - 1]
