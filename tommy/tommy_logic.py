@@ -195,3 +195,32 @@ def analyze_resonance(window: int) -> str:
         f"{pos} positive, {neg} negative, {neu} neutral. "
         f"Trend {trend}. {anomaly}."
     )
+
+
+async def process_file_with_context(path: str, engine=None) -> str:
+    """Process a file and record its summary for Tommy.
+
+    Parameters
+    ----------
+    path:
+        Filesystem path to the file.
+    engine:
+        Optional :class:`~arianna_utils.vector_store.SQLiteVectorStore` instance
+        to use for embeddings.
+
+    Returns
+    -------
+    str
+        Full result from ``parse_and_store_file``.
+    """
+
+    from arianna_utils.context_neural_processor import parse_and_store_file
+
+    result = await parse_and_store_file(path, engine=engine)
+
+    match = re.search(r"Summary: (.*)", result)
+    summary = match.group(1).splitlines()[0] if match else ""
+    message = f"Processed {path}: {summary[:200]}" if summary else f"Processed {path}"
+    _tommy.log_event(message)
+    _tommy.update_resonance()
+    return result

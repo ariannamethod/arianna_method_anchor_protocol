@@ -29,7 +29,7 @@ import shlex
 import textwrap
 import ast
 from tommy import tommy
-from arianna_utils.context_neural_processor import parse_and_store_file
+from tommy.tommy_logic import process_file_with_context
 
 _NO_COLOR_FLAG = "--no-color"
 USE_COLOR = (
@@ -488,7 +488,7 @@ async def handle_file(user: str) -> Tuple[str, str | None]:
         reply = "Usage: /file <path>"
         return reply, reply
     try:
-        result = await parse_and_store_file(path)
+        result = await process_file_with_context(path)
     except Exception as e:
         result = f"Error: {e}"
     return result, result
