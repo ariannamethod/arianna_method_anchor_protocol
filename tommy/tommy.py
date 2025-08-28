@@ -25,7 +25,9 @@ def _init_resonance_db() -> None:
     with sqlite3.connect(RESONANCE_DB_PATH, timeout=30) as conn:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS resonance (ts TEXT, agent TEXT, summary TEXT)"
+            "CREATE TABLE IF NOT EXISTS resonance ("
+            "ts TEXT, agent TEXT, role TEXT, sentiment TEXT, snapshots TEXT, summary TEXT"
+            ")"
         )
 
 
@@ -93,11 +95,46 @@ def update_resonance(agent: str = "tommy") -> None:
     impression = _fetch_latest_evaluation()
     if impression:
         summary = f"{summary} || {impression}"
+    sentiment = _compute_sentiment(summary)
+    snapshots = _fetch_snapshot_links()
+    role = "guardian"
     with sqlite3.connect(RESONANCE_DB_PATH, timeout=30) as conn:
         conn.execute(
-            "INSERT INTO resonance (ts, agent, summary) VALUES (?, ?, ?)",
-            (datetime.now().isoformat(), agent, summary),
+            "INSERT INTO resonance (ts, agent, role, sentiment, snapshots, summary) VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                datetime.now().isoformat(),
+                agent,
+                role,
+                sentiment,
+                snapshots,
+                summary,
+            ),
         )
+
+
+def _compute_sentiment(text: str) -> str:
+    text = text.lower()
+    if any(word in text for word in ["error", "fail", "bad"]):
+        return "negative"
+    if any(word in text for word in ["success", "good", "ok"]):
+        return "positive"
+    return "neutral"
+
+
+def _fetch_snapshot_links(limit: int = 1) -> str:
+    try:
+        with sqlite3.connect(DB_PATH, timeout=30) as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS snapshots (date TEXT PRIMARY KEY, summary TEXT, prediction TEXT, evaluation TEXT)"
+            )
+            cur = conn.execute(
+                "SELECT date FROM snapshots ORDER BY date DESC LIMIT ?",
+                (limit,),
+            )
+            dates = [row[0] for row in cur.fetchall()]
+            return ",".join(dates)
+    except Exception:
+        return ""
 
 
 def _fetch_latest_evaluation() -> str:

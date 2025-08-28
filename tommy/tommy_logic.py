@@ -159,3 +159,39 @@ def predict_tomorrow(snapshot_today: Snapshot) -> str:
             (prediction, snapshot_today.date.strftime("%Y-%m-%d")),
         )
     return prediction
+
+
+def analyze_resonance(window: int) -> str:
+    """Analyze resonance history over the given window in days.
+
+    Parameters
+    ----------
+    window:
+        Number of days to look back for resonance events.
+
+    Returns
+    -------
+    str
+        Short textual report summarizing sentiment trend and anomalies.
+    """
+
+    cutoff = datetime.now() - timedelta(days=window)
+    with sqlite3.connect(_tommy.RESONANCE_DB_PATH, timeout=30) as conn:
+        cur = conn.execute(
+            "SELECT ts, sentiment FROM resonance WHERE ts >= ? ORDER BY ts",
+            (cutoff.isoformat(),),
+        )
+        rows = cur.fetchall()
+    if not rows:
+        return "No resonance data."
+    total = len(rows)
+    pos = sum(1 for _, s in rows if s == "positive")
+    neg = sum(1 for _, s in rows if s == "negative")
+    neu = total - pos - neg
+    trend = "positive" if pos >= neg else "negative"
+    anomaly = "Anomaly detected" if neg > pos * 2 else "Stable"
+    return (
+        f"{total} entries in last {window} days: "
+        f"{pos} positive, {neg} negative, {neu} neutral. "
+        f"Trend {trend}. {anomaly}."
+    )
