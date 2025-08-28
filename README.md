@@ -10,7 +10,7 @@ Future development of the agent aims to expand its capabilities: we plan to add 
 
 ## Recent Changes
 
-- Integrated `arianna_utils.context_neural_processor` with `letsgo.py` via the `/file` command for direct file ingestion.
+- Integrated `arianna_utils.context_neural_processor` with `letsgo.py` to ingest files automatically when they're uploaded.
 - Granted Tommy terminal access and required a mood script after every message.
 - Documentation now frames the system as a platform for emergent agents sharing a SQLite resonance channel.
 

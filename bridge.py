@@ -308,7 +308,7 @@ async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message:
+    if not update.message or not update.effective_user:
         return
     document = update.message.document
     photo = update.message.photo[-1] if update.message.photo else None
@@ -324,11 +324,36 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     dest = Path(name)
     await tg_file.download_to_drive(custom_path=str(dest))
-    await update.message.reply_text(f"file {name} uploaded")
+    try:
+        proc = await _get_user_proc(update.effective_user.id)
+        await context.bot.send_chat_action(
+            chat_id=update.effective_chat.id,
+            action=ChatAction.TYPING,
+        )
+        output = await proc.run(f"/file {dest}")
+        _append_history(update.effective_user.id, f"/file {name}")
+    except Exception as exc:  # noqa: BLE001 - send error to user
+        await update.message.reply_text(f"Error: {exc}")
+        dest.unlink(missing_ok=True)
+        return
+    dest.unlink(missing_ok=True)
+    if not output:
+        return
+    if len(output) > 4000:
+        for i in range(0, len(output), 4000):
+            chunk = output[i : i + 4000]
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"```\n{chunk}\n```",
+                parse_mode="Markdown",
+            )
+    else:
+        await update.message.reply_text(output)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    commands = "\n".join(f"{cmd} - {desc}" for cmd, (_, desc) in CORE_COMMANDS.items())
+    visible = {cmd: data for cmd, data in CORE_COMMANDS.items() if cmd != "/file"}
+    commands = "\n".join(f"{cmd} - {desc}" for cmd, (_, desc) in visible.items())
     await update.message.reply_text(
         "Welcome! Available commands:\n" + commands,
         reply_markup=build_main_keyboard(),
@@ -403,7 +428,11 @@ async def start_bot() -> None:
     persistence = PicklePersistence(filepath=persistence_path)
     application = ApplicationBuilder().token(token).persistence(persistence).build()
     await application.bot.delete_webhook(drop_pending_updates=True)
-    commands = [BotCommand(cmd[1:], desc) for cmd, (_, desc) in CORE_COMMANDS.items()]
+    commands = [
+        BotCommand(cmd[1:], desc)
+        for cmd, (_, desc) in CORE_COMMANDS.items()
+        if cmd != "/file"
+    ]
     commands.append(BotCommand("history", "command history"))
     await application.bot.set_my_commands(commands)
     terminal_url = os.getenv("WEB_TERMINAL_URL", "").strip()
