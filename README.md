@@ -52,6 +52,7 @@ The bridge and HTTP server require several variables to be set before starting `
 - `API_TOKEN` – shared secret for API requests and WebSocket connections
 - `TELEGRAM_TOKEN` – token used by the Telegram agent
 - `PORT` – port for the HTTP server (defaults to `8000`)
+- `MAX_UPLOAD_SIZE` – maximum allowed size in bytes for WebSocket uploads (defaults to `10485760`)
 
 ---
 
