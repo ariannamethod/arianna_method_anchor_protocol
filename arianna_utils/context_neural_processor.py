@@ -23,7 +23,42 @@ try:  # Optional dependency
 except ImportError:  # pragma: no cover - optional
     BeautifulSoup = None
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:  # pragma: no cover - optional
+    class _NP:  # minimal placeholder to allow import
+        class random:  # type: ignore
+            @staticmethod
+            def randn(*args, **kwargs):
+                raise ImportError("numpy not installed")
+
+        class linalg:  # type: ignore
+            @staticmethod
+            def eigvals(*args, **kwargs):
+                raise ImportError("numpy not installed")
+
+        @staticmethod
+        def zeros(*args, **kwargs):
+            raise ImportError("numpy not installed")
+
+        @staticmethod
+        def array(*args, **kwargs):
+            raise ImportError("numpy not installed")
+
+        @staticmethod
+        def tanh(*args, **kwargs):
+            raise ImportError("numpy not installed")
+
+        @staticmethod
+        def dot(*args, **kwargs):
+            raise ImportError("numpy not installed")
+
+        @staticmethod
+        def argmax(*args, **kwargs):
+            raise ImportError("numpy not installed")
+
+    np = _NP()  # type: ignore
+
 import sqlite3
 try:
     from char_gen import CharGen  # Assume from SUPERTIME

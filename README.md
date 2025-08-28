@@ -1,12 +1,18 @@
 # Arianna Method Anchor Protocol Engine
 
-**Arianna Method Anchor Protocol Engine** is a deliberately compact operating nucleus engineered from Alpine sources to provide a deterministic base for AI workloads.
+**Arianna Method Anchor Protocol Engine** is a deliberately compact operating nucleus engineered from Alpine sources to provide a deterministic base for AI workloads. It lays the groundwork for hosting multiple agents that communicate through a shared SQLite channel to spark emergent behaviour.
 
-Those who want to try the new kernel firsthand can visit the Telegram bot **Terminal Robot** at [https://t.me/ariannaterminalrobot](https://t.me/ariannaterminalrobot). Additional screenshots and usage examples will appear there later.
+Those who want to try the new kernel firsthand can visit the Telegram agent **Terminal Agent** at [https://t.me/ariannaterminalagent](https://t.me/ariannaterminalagent). Additional screenshots and usage examples will appear there later.
 
-The robot provides a minimal terminal connected to the same kernel as AMLK. It can accept commands, return output, and maintain a shared log with other interfaces.
+The agent provides a minimal terminal connected to the same kernel as AMLK. It can accept commands, return output, and maintain a shared log with other interfaces.
 
-Future development of the robot aims to expand its capabilities: we plan to add monitoring, resource management, and other interaction methods. Beyond Arianna Method OS, the bot serves as a clean minimalist access point to the new Linux kernel.
+Future development of the agent aims to expand its capabilities: we plan to add monitoring, resource management, and other interaction methods. Beyond Arianna Method OS, the agent serves as a clean minimalist access point to the new Linux kernel.
+
+## Recent Changes
+
+- Integrated `arianna_utils.context_neural_processor` with `letsgo.py` via the `/file` command for direct file ingestion.
+- Granted Tommy terminal access and required a mood script after every message.
+- Documentation now frames the system as a platform for emergent agents sharing a SQLite resonance channel.
 
 **Contributors and any form of collaboration are warmly welcomed.**
 
@@ -42,7 +48,7 @@ AMLK is lightweight enough to embed within messaging clients like Telegram, allo
 The bridge and HTTP server require several variables to be set before starting `bridge.py`:
 
 - `API_TOKEN` – shared secret for API requests and WebSocket connections
-- `TELEGRAM_TOKEN` – token used by the Telegram bot
+- `TELEGRAM_TOKEN` – token used by the Telegram agent
 - `PORT` – port for the HTTP server (defaults to `8000`)
 
 ---
@@ -50,7 +56,7 @@ The bridge and HTTP server require several variables to be set before starting `
 ## Token Setup
 
 - `API_TOKEN` – token for HTTP and WebSocket. Set it before launch via `export API_TOKEN=...`.
-- `TELEGRAM_TOKEN` – Telegram bot token required to enable the bot.
+- `TELEGRAM_TOKEN` – Telegram agent token required to enable the agent.
 - In the web interface open `arianna_terminal.html` and enter the token in the **Token** field; the value is stored in `localStorage`.
 
 **Example run:**
@@ -118,7 +124,7 @@ With --test-qemu, the above is executed automatically; artifacts stay under boot
 ⸻
 
 Future Interfaces
-	•	Telegram bridge: Proxies chat messages to letsgo.py terminal. Each chat gets a session log; bot authenticates via API token.
+	•	Telegram bridge: Proxies chat messages to letsgo.py terminal. Each chat gets a session log; agent authenticates via API token.
 	•	Web UI: Terminal via WebSocket. HTTP as transport; SSL/rate limiting via userland libraries atop initramfs.
 	•	Other: serial TTYs, named pipes, custom RPC. The terminal only uses stdio, so any frontend can connect.
 
@@ -143,15 +149,15 @@ The terminal, invoked after login, serves as the shell for Arianna Core.
 
 Tommy
 
-Tommy is the resident companion embedded in the terminal. He observes the dialogue between the user and letsgo.py and is always ready to respond. Every command and reply is recorded, giving him a running context of the session and a memory he can draw from when answering.
+Tommy is the resident agent embedded in the terminal. He observes the dialogue between the user and letsgo.py and is always ready to respond, now wielding direct access to the system shell. Every command and reply is recorded, giving him a running context of the session and a memory he can draw from when answering.
 
-Under the hood Tommy writes each event to a SQLite database and JSONL log. After every exchange he condenses the last five interactions into a shared `resonance` stream that future agents can read. This lightweight log-driven approach keeps his suggestions grounded in real activity while seeding a collective memory.
+Under the hood Tommy writes each event to a SQLite database and JSONL log. After every exchange he condenses the last five interactions into a shared `resonance` stream that future agents can read, forming the common channel for emergent coordination.
 
-Tommy routes these prompts to the Grok‑3 model through the x.ai API. The API key comes from the `XAI_API_KEY` environment variable, and responses are streamed back asynchronously. By limiting temperature and filtering prompts, he produces concise operational advice instead of chatter.
+Tommy routes these prompts to the Grok‑3 model through the x.ai API and immediately executes a tiny Python script to echo his mood. The API key comes from the `XAI_API_KEY` environment variable, and responses are streamed back asynchronously.
 
-Logs timestamped with ISO-8601, using //: comments, for replay or training.
+Logs timestamped with ISO-8601, using //: comments, capture dialogue and mood output for replay or training.
 
-Minimal dependencies: pure Python stdlib, runs in initramfs even without extra packages.
+Minimal dependencies: pure Python stdlib, yet he anchors the future multi-agent stack and runs even in initramfs without extra packages.
 
 ⸻
 
@@ -188,7 +194,7 @@ An HTTP bridge exposes letsgo.py to web clients and chat platforms. The containe
 railway init
 railway up
 
-API_TOKEN secures all endpoints; TELEGRAM_TOKEN enables the bot.
+API_TOKEN secures all endpoints; TELEGRAM_TOKEN enables the agent.
 
 API Example:
 
@@ -202,7 +208,7 @@ ws.onopen = () => ws.send('/time');
 
 arianna_terminal.html in the repo is a mobile-friendly xterm.js console.
 
-One kernel, many clients: Telegram bot and HTML terminal talk to same letsgo.py, share history/context.
+One kernel, many clients: Telegram agent and HTML terminal talk to same letsgo.py, share history/context.
 
 License
 
