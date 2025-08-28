@@ -15,6 +15,8 @@ import random
 import re
 import json
 import logging
+import heapq
+from collections import Counter
 
 from .archive import safe_extract
 
@@ -479,6 +481,49 @@ def load_cache(path: str, max_age: float = 43200) -> Optional[Dict]:
         return None
 
 
+# Simple frequency-based summarization used when CharGen is unavailable
+_STOPWORDS = {
+    "the",
+    "and",
+    "of",
+    "to",
+    "a",
+    "in",
+    "is",
+    "it",
+    "that",
+    "as",
+    "for",
+    "with",
+    "its",
+    "on",
+    "this",
+    "by",
+    "an",
+    "be",
+    "are",
+    "from",
+}
+
+
+def _simple_summarize(text: str, max_sentences: int = 3) -> str:
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    if not sentences:
+        return text[:200]
+    words = [w for w in re.findall(r"\w+", text.lower()) if w not in _STOPWORDS]
+    freq = Counter(words)
+    scored = []
+    for idx, sent in enumerate(sentences):
+        score = sum(freq.get(w, 0) for w in re.findall(r"\w+", sent.lower()) if w not in _STOPWORDS)
+        scored.append((score, idx, sent))
+    top = heapq.nlargest(max_sentences, scored)
+    ordered = [s for _, _, s in sorted(top, key=lambda x: x[1])]
+    summary = " ".join(ordered)
+    if len(summary) > 500:
+        summary = summary[:500].rsplit(" ", 1)[0] + "..."
+    return summary
+
+
 # Async paraphrase
 async def paraphrase(text: str, prefix: str = "Summarize this for kids: ") -> str:
     temp = 0.7 + chaos_pulse.get() * 0.3
@@ -499,7 +544,7 @@ async def paraphrase(text: str, prefix: str = "Summarize this for kids: ") -> st
         raise ValueError("No CharGen")
     except (RuntimeError, ValueError) as e:
         log_event(f"Paraphrase failed: {str(e)}", "error")
-        return snippet + " Ether’s silent, Wulf persists! 🌌"
+        return _simple_summarize(text)
 
 
 # FileHandler
@@ -984,7 +1029,7 @@ async def parse_and_store_file(
         relevance = cached["relevance"]
     else:
         tags = markov.generate(length=5, start=os.path.basename(path))
-        summary = await paraphrase(f"File {os.path.basename(path)} content: {text}")
+        summary = await paraphrase(text)
         save_cache(
             path,
             await handler._detect_extension(path),
