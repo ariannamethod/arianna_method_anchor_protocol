@@ -1,5 +1,7 @@
 # Arianna Method Anchor Protocol Engine
 
+The project seeds an ecosystem for AI agents, designed to cultivate emergent behaviour through shared context and coordination.
+
 **Arianna Method Anchor Protocol Engine** is a deliberately compact operating nucleus engineered from Alpine sources to provide a deterministic base for AI workloads. It lays the groundwork for hosting multiple agents that communicate through a shared SQLite channel to spark emergent behaviour.
 
 Those who want to try the new kernel firsthand can visit the Telegram agent **Terminal Agent** at [https://t.me/ariannaterminalagent](https://t.me/ariannaterminalagent). Additional screenshots and usage examples will appear there later.
@@ -149,7 +151,11 @@ The terminal, invoked after login, serves as the shell for Arianna Core.
 
 Tommy
 
-Tommy is the resident agent embedded in the terminal. He observes the dialogue between the user and letsgo.py and is always ready to respond, now wielding direct access to the system shell. Every command and reply is recorded, giving him a running context of the session and a memory he can draw from when answering.
+Tommy is the first agent in the Arianna ecosystem, embedded directly in the terminal. He is more than a helper function: he observes the dialogue between the user and letsgo.py and is always ready to respond with system-level actions.
+
+He now brokers commands for the growing agent network, spawning subprocesses on request and summarizing their outcomes into the shared resonance channel so that peers can continue the work.
+
+Tommy also monitors system metrics and guards the log stream, surfacing alerts and keeping a timeline of activity for downstream analysis.
 
 Under the hood Tommy writes each event to a SQLite database and JSONL log. After every exchange he condenses the last five interactions into a shared `resonance` stream that future agents can read, forming the common channel for emergent coordination.
 
