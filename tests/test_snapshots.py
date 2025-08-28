@@ -40,7 +40,8 @@ def test_snapshot_flow(monkeypatch, tmp_path):
     tommy.update_resonance()
     with sqlite3.connect(tommy.RESONANCE_DB_PATH, timeout=30) as conn:
         cur = conn.execute(
-            "SELECT summary FROM resonance ORDER BY rowid DESC LIMIT 1"
+            "SELECT summary, snapshots FROM resonance ORDER BY rowid DESC LIMIT 1"
         )
-        summary = cur.fetchone()[0]
+        summary, snaps = cur.fetchone()
     assert "predicted" in summary
+    assert "2024-05-02" in snaps
