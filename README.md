@@ -159,6 +159,28 @@ Logs timestamped with ISO-8601, using //: comments, capture dialogue and mood ou
 
 Minimal dependencies: pure Python stdlib, yet he anchors the future multi-agent stack and runs even in initramfs without extra packages.
 
+## Context Neural Processor
+
+The `context_neural_processor.py` module acts as the project's cognitive intake valve. It accepts files from the filesystem or archives, extracts their text, and threads the results into the shared cache so that agents can reason about them later. Every read is hashed and recorded, ensuring reproducibility and a consistent memory of past ingestions.
+
+At its core the processor behaves like a miniature neural network tuned for context rather than images or audio. Inputs are mapped into lightweight structures that imitate activation patterns, allowing the module to guess file relevance and produce fast summaries without calling heavyweight models. The emphasis is on deterministic transforms that still echo the adaptive flavour of machine learning.
+
+A tiny Markov engine seeds the module with a corpus of Arianna-flavoured keywords. As new text arrives, the chain expands and emits stochastic tags that reflect both frequency and thematic resonance. This mechanism provides quick heuristics for naming and indexing content in a style that feels alive.
+
+To classify files the processor spins up a small echo state network. Byte sequences and tokenised words enter a dynamic reservoir whose leaky integrator imitates recurrent neural dynamics. The resulting state predicts likely extensions and drives downstream summarisation routines.
+
+Sentiment and energy are regulated by a `ChaosPulse` component. It watches the words flowing through the system, nudging a global pulse value that modulates sampling temperature and weighting functions. The pulse gives the processor a heartbeat that gently reacts to success or failure cues in the data stream.
+
+Biological metaphors surface in the `BioOrchestra`. Submodules named `BloodFlux`, `SkinSheath`, and `SixthSense` translate numeric intensities into visceral metaphors of circulation, touch, and foresight. Their outputs feed back into the pulse, closing a loop that mimics a living organism adjusting to stimuli.
+
+Persistent awareness comes from an SQLite cache. For each file the processor stores hashes, tags, relevance scores, and condensed summaries, pruning old entries as time passes. This cache lets Tommy avoid re-parsing unchanged resources while keeping a rolling window of contextual knowledge.
+
+The ingestion pipeline can unwrap a wide array of formats: PDFs, Word documents, HTML, images, and more. Each extractor is guarded by size limits and safe archive handling to keep the kernel austere. Relevance scoring compares word sets against the seed corpus, prioritising material that resonates with the project's vocabulary.
+
+Text is paraphrased asynchronously. When the optional `CharGen` utility is available, summaries are rewritten through a temperature scaled by the current chaos pulse, yielding vibrant yet stable descriptions. The approach embraces probabilistic creativity while remaining firmly bounded.
+
+Overall the processor forms a pocket neural lab inside the repository. It transforms raw files into tagged, summarised, and pulsing representations that other agents can draw on. In miniature it demonstrates how tiny neural constructs can augment a minimal Linux userland with contextual intelligence.
+
 ⸻
 
 Architecture
