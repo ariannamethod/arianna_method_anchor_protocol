@@ -5,7 +5,7 @@ python-telegram-bot
 python-multipart
 aiohttp
 numpy
-beautifulsoup4
+beautifulsoup4==4.8.2
 pypdf
 python-docx
 striprtf
