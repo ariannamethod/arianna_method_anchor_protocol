@@ -163,6 +163,7 @@ API_TOKEN = os.getenv("API_TOKEN", "change-me")
 RATE_LIMIT = float(os.getenv("RATE_LIMIT_SEC", "1"))
 _last_call: Dict[str, float] = {}
 UPLOAD_DIR = "/arianna_core/upload"
+MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_SIZE", str(10 * 1024 * 1024)))
 
 
 HISTORY_ROOT = Path.home() / ".letsgo"
@@ -287,13 +288,23 @@ async def upload_ws(websocket: WebSocket) -> None:
     await websocket.accept()
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     path = os.path.join(UPLOAD_DIR, name)
+    total = 0
+    over_limit = False
     try:
         with open(path, "wb") as fh:
             while True:
                 data = await websocket.receive_bytes()
+                total += len(data)
+                if total > MAX_UPLOAD_SIZE:
+                    over_limit = True
+                    await websocket.close(code=1009)
+                    break
                 fh.write(data)
     except WebSocketDisconnect:
         pass
+    finally:
+        if over_limit and os.path.exists(path):
+            os.remove(path)
 
 
 async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
