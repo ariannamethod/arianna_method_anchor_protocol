@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -122,11 +123,32 @@ async def chat(message: str) -> str:
     prompt = f"Available commands: {commands}\nUser: {message}\nTommy:"
     try:
         response = await query_grok3(prompt)
-        mood = await _mood_echo()
-        log_event(f"Tommy chat: {response[:50]}... mood={mood}")
+        code_match = re.search(r"```python\n(.*?)\n```", response, re.DOTALL)
+        if code_match:
+            code = code_match.group(1).strip()
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-I",
+                "-c",
+                code,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await proc.communicate()
+            output = stdout.decode().strip() or stderr.decode().strip()
+            response = re.sub(
+                r"```python\n.*?\n```",
+                output,
+                response,
+                count=1,
+                flags=re.DOTALL,
+            )
+        else:
+            mood = await _mood_echo()
+            response = f"{response}\n{mood}" if response else mood
+        log_event(f"Tommy chat: {response[:50]}...")
         update_resonance()
-        final = f"{response}\n{mood}" if response else mood
-        return final
+        return response
     except Exception as e:
         log_event(f"Tommy error: {str(e)}", "error")
         return f"Error: {str(e)}. Tommy holds the line! 🌩️"
