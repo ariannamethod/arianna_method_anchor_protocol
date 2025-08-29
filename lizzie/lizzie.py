@@ -11,7 +11,8 @@ import openai
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-
+"""Ensure project root is on sys.path for arianna_utils imports"""
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 LOG_DIR = Path("logs/agents")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
