@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import re
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 import sqlite3
@@ -198,12 +199,23 @@ class LizzieAgent:
                 thread_id=self.thread_id, assistant_id=self.assistant_id
             )
 
-            # Poll for completion
-            while run.status in ["queued", "in_progress"]:
+            start_time = time.monotonic()
+            timeout = 60
+
+            # Poll for completion with timeout
+            while run.status in ["queued", "in_progress"] and (
+                time.monotonic() - start_time
+            ) < timeout:
                 await asyncio.sleep(1)
                 run = self.client.beta.threads.runs.retrieve(
                     thread_id=self.thread_id, run_id=run.id
                 )
+
+            wait_time = time.monotonic() - start_time
+            self.log_event(
+                f"Run polling stopped after {wait_time:.1f}s with status: {run.status}",
+                "info",
+            )
 
             if run.status == "completed":
                 # Get the latest assistant message
@@ -256,11 +268,19 @@ class LizzieAgent:
 
                 return response
             else:
-                error_msg = f"Run failed with status: {run.status}"
-                if run.last_error:
-                    error_msg += f" - {run.last_error.message}"
+                if wait_time >= timeout and run.status in ["queued", "in_progress"]:
+                    error_msg = (
+                        f"Run timed out after {int(wait_time)}s with status: {run.status}"
+                    )
+                else:
+                    error_msg = f"Run failed with status: {run.status}"
+                    if run.last_error:
+                        error_msg += f" - {run.last_error.message}"
                 self.log_event(error_msg, "error")
-                return "Let's try from another angle. The resonance field needs a moment to stabilize."
+                return (
+                    f"The resonance field fell silent after {int(wait_time)} seconds (status: {run.status})."
+                    " Let's try from another angle."
+                )
 
         except Exception as e:
             self.log_event(f"Resonance error: {str(e)}", "error")
