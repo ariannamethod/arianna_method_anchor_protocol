@@ -11,8 +11,8 @@ Agent Bridge - промежуточный модуль для подключен
 from pathlib import Path
 import sys
 
-# Убеждаемся что корень проекта в sys.path
-_project_root = Path(__file__).parent
+# Убеждаемся что корень проекта в sys.path (на два уровня вверх из lizzie/)
+_project_root = Path(__file__).parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
