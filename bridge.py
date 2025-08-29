@@ -14,9 +14,11 @@ from fastapi import (
     File,
     WebSocket,
     WebSocketDisconnect,
+    Response,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.responses import HTMLResponse
 from telegram import (
     Update,
     BotCommand,
@@ -166,6 +168,17 @@ RATE_LIMIT = float(os.getenv("RATE_LIMIT_SEC", "1"))
 _last_call: Dict[str, float] = {}
 UPLOAD_DIR = "/arianna_core/upload"
 MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_SIZE", str(10 * 1024 * 1024)))
+
+
+@app.get("/", response_class=HTMLResponse)
+async def index() -> str:
+    html_path = Path(__file__).with_name("arianna_terminal.html")
+    return html_path.read_text(encoding="utf-8")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon() -> Response:
+    return Response(status_code=204)
 
 
 HISTORY_ROOT = Path.home() / ".letsgo"
