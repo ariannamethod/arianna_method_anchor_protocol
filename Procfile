@@ -1,1 +1,2 @@
-web: python bridge.py
+tommy: python bridge.py
+lizzie: python lizzie/main.py
