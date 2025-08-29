@@ -11,8 +11,7 @@ import openai
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-# Add project root to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+
 
 LOG_DIR = Path("logs/agents")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
