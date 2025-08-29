@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import json
 import math
 import sqlite3
+from collections import Counter
 from pathlib import Path
 from string import ascii_lowercase
 from typing import List, Tuple
@@ -25,7 +26,8 @@ def embed_text(text: str) -> List[float]:
     lightweight while still allowing rudimentary similarity search.
     """
     text = text.lower()
-    counts = [text.count(ch) for ch in ascii_lowercase]
+    freq = Counter(ch for ch in text if ch in ascii_lowercase)
+    counts = [freq.get(ch, 0) for ch in ascii_lowercase]
     norm = math.sqrt(sum(c * c for c in counts)) or 1.0
     return [c / norm for c in counts]
 
