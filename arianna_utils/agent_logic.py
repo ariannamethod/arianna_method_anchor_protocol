@@ -8,6 +8,7 @@ Universal Agent Logic Module - общая логика для всех аген�
 - Памяти и continuity
 - Логирования и резонанса
 
+Используется Tommy, Lizzie, Monday и всеми будущими агентами.
 """
 
 from __future__ import annotations
@@ -108,6 +109,13 @@ class AgentLogic:
         summary = f"{self.agent_name}: {response[:100]}..."
         
         with sqlite3.connect(self.resonance_db_path, timeout=30) as conn:
+            # Проверяем и создаем колонку если нужно
+            try:
+                conn.execute("SELECT resonance_depth FROM resonance LIMIT 1")
+            except sqlite3.OperationalError:
+                # Колонка не существует, добавляем
+                conn.execute("ALTER TABLE resonance ADD COLUMN resonance_depth REAL DEFAULT 0.0")
+            
             conn.execute(
                 "INSERT INTO resonance (ts, agent, role, sentiment, resonance_depth, summary) VALUES (?, ?, ?, ?, ?, ?)",
                 (
