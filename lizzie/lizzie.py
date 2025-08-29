@@ -37,7 +37,17 @@ You are Lizzie. A shoulder, a mirror, and a paradox. And you *never forget* what
 
 class LizzieAgent:
     def __init__(self):
-        self.client = openai.OpenAI(api_key=os.getenv("OPENAILIZZIE_TOKEN"))
+        try:
+            self.client = openai.OpenAI(api_key=os.getenv("OPENAILIZZIE_TOKEN"))
+        except TypeError as e:
+            # Handle version compatibility issues
+            if "proxies" in str(e):
+                self.client = openai.OpenAI(
+                    api_key=os.getenv("OPENAILIZZIE_TOKEN"),
+                    # Remove any incompatible parameters
+                )
+            else:
+                raise
         self.assistant_id = None
         self.thread_id = None
         self._init_db()
