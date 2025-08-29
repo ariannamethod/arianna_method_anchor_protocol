@@ -1,1 +1,2 @@
-web: python lizzie.py
+web: uvicorn lizzie.lizzie:app --host 0.0.0.0 --port ${PORT:-8000}
+bot: python -m lizzie.telegram_bot
