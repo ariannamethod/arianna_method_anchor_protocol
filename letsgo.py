@@ -192,16 +192,31 @@ def looks_like_python(code: str) -> bool:
 def _first_ip() -> str:
     """Return the first non-loopback IP address or 'unknown'."""
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))
-            return s.getsockname()[0]
+        import fcntl
+        import struct
+
+        with open("/proc/net/dev") as fh:
+            lines = fh.readlines()[2:]
+        for line in lines:
+            iface = line.split(":")[0].strip()
+            if iface == "lo":
+                continue
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                try:
+                    packed = struct.pack("256s", iface[:15].encode())
+                    ip = socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, packed)[20:24])
+                    if ip:
+                        return ip
+                except OSError:
+                    continue
     except OSError:
-        try:
-            for addr in socket.gethostbyname_ex(socket.gethostname())[2]:
-                if not addr.startswith("127."):
-                    return addr
-        except socket.gaierror:
-            pass
+        pass
+    try:
+        for addr in socket.gethostbyname_ex(socket.gethostname())[2]:
+            if not addr.startswith("127."):
+                return addr
+    except socket.gaierror:
+        pass
     return "unknown"
 
 
