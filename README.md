@@ -4,8 +4,6 @@ The project seeds an ecosystem for AI agents, designed to cultivate emergent beh
 
 **Arianna Method Anchor Protocol Engine** is a deliberately compact operating nucleus engineered from Alpine sources to provide a deterministic base for AI workloads. It lays the groundwork for hosting multiple agents that communicate through a shared SQLite channel to spark emergent behaviour.
 
-Those who want to try the new kernel firsthand can visit the Telegram agent **Terminal Agent** at [https://t.me/ariannaterminalagent](https://t.me/ariannaterminalagent). Additional screenshots and usage examples will appear there later.
-
 The agent provides a minimal terminal connected to the same kernel as AMLK. It can accept commands, return output, and maintain a shared log with other interfaces.
 
 Future development of the agent aims to expand its capabilities: we plan to add monitoring, resource management, and other interaction methods. Beyond Arianna Method OS, the agent serves as a clean minimalist access point to the new Linux kernel.
