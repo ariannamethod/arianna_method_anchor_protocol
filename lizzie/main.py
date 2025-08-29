@@ -76,7 +76,7 @@ async def handle_message(update, context):
         logger.info(f"Response sent to user {user_id}: {response[:50]}...")
         
     except Exception as e:
-        logger.error(f"Error processing message from user {user_id}: {e}")
+        logger.error(f"🔥 LIZZIE ERROR: {type(e).__name__}: {str(e)}", exc_info=True)
         error_response = (
             "The resonance encounters turbulence. "
             "Let's try from another angle in a moment."
