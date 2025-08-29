@@ -11,8 +11,7 @@ import openai
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-"""Ensure project root is on sys.path for arianna_utils imports"""
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 
 LOG_DIR = Path("logs/agents")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -88,7 +87,7 @@ class LizzieAgent:
             assistant = self.client.beta.assistants.create(
                 name="Lizzie",
                 instructions=LIZZIE_INSTRUCTIONS,
-                model="gpt-4-turbo-preview",
+                model="gpt-4o",
                 tools=[],
             )
             self.assistant_id = assistant.id
