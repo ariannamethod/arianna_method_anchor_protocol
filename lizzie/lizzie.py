@@ -205,6 +205,9 @@ class LizzieAgent:
             await self._ensure_thread()
 
             # Инициализируем общую логику ПОСЛЕ инициализации клиента
+            import sys
+            from pathlib import Path
+            sys.path.insert(0, str(Path(__file__).parent.parent))
             from arianna_utils.agent_logic import get_agent_logic
             logic = get_agent_logic("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
             
