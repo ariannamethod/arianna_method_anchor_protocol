@@ -207,20 +207,12 @@ class LizzieAgent:
             await self._ensure_assistant()
             await self._ensure_thread()
 
-            # Используем общую логику
-            from arianna_utils.agent_logic import get_agent_logic
-            logic = get_agent_logic("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
-            
-            # Строим контекст из цитирований  
-            context_block = await logic.build_context_block(message)
-            enhanced_message = f"{context_block}{message}" if context_block else message
-
-            # Add enhanced message to thread
+            # Add message to thread
             start = time.monotonic()
             self._log_step("message.create", "before", None, "pending", 0)
             try:
                 self.client.beta.threads.messages.create(
-                    thread_id=self.thread_id, role="user", content=enhanced_message
+                    thread_id=self.thread_id, role="user", content=message
                 )
                 self._log_step(
                     "message.create",
