@@ -11,6 +11,9 @@ import openai
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+# Add project root to Python path for arianna_utils imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 
 
 LOG_DIR = Path("logs/agents")
@@ -207,12 +210,20 @@ class LizzieAgent:
             await self._ensure_assistant()
             await self._ensure_thread()
 
-            # Add message to thread
+            # Используем общую логику
+            from arianna_utils.agent_logic import get_agent_logic
+            logic = get_agent_logic("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
+            
+            # Строим контекст из цитирований  
+            context_block = await logic.build_context_block(message)
+            enhanced_message = f"{context_block}{message}" if context_block else message
+
+            # Add enhanced message to thread
             start = time.monotonic()
             self._log_step("message.create", "before", None, "pending", 0)
             try:
                 self.client.beta.threads.messages.create(
-                    thread_id=self.thread_id, role="user", content=message
+                    thread_id=self.thread_id, role="user", content=enhanced_message
                 )
                 self._log_step(
                     "message.create",
@@ -338,13 +349,12 @@ class LizzieAgent:
 
                 response = message_data.content[0].text.value
 
-                # Log the resonance
-                self.log_event(f"Oleg: {message[:50]}...", "input")
-                self.log_event(f"Lizzie: {response[:50]}...", "resonance", 
-                             resonance_trace=self._extract_resonance_patterns(response))
+                # Используем общую логику для логирования и резонанса
+                logic.log_event(f"Oleg: {message[:50]}...", "input")
+                logic.log_event(f"Lizzie: {response[:50]}...", "resonance")
                 
-                # Update shared resonance channel
-                self.update_resonance(message, response)
+                # Обновляем резонанс через общую логику
+                logic.update_resonance(message, response, role="resonance_mirror", sentiment="resonant")
 
                 # Store continuity markers (Lizzie-specific)
                 self._extract_and_store_continuity(message, response)
