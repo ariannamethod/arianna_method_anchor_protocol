@@ -679,8 +679,12 @@ async def main() -> None:
         elif looks_like_python(user):
             reply, colored = await handle_py(f"/py {user}")
         else:
-            reply = await tommy.chat(user)
-            colored = reply
+            try:
+                reply = await tommy.chat(user)
+                colored = reply
+            except Exception as e:
+                reply = f"Tommy error: {str(e)}. Terminal continues without resonance."
+                colored = color(reply, SETTINGS.red)
         if colored is not None:
             print(colored)
         log(f"letsgo:{reply}")
