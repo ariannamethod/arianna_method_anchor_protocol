@@ -390,7 +390,9 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    visible = {cmd: data for cmd, data in CORE_COMMANDS.items() if cmd != "/file"}
+    visible = {
+        cmd: data for cmd, data in CORE_COMMANDS.items() if cmd not in {"/file", "/xplain"}
+    }
     commands = "\n".join(f"{cmd} - {desc}" for cmd, (_, desc) in visible.items())
     await update.message.reply_text(
         "Welcome! Available commands:\n" + commands,
@@ -469,7 +471,7 @@ async def start_bot() -> None:
     commands = [
         BotCommand(cmd[1:], desc)
         for cmd, (_, desc) in CORE_COMMANDS.items()
-        if cmd != "/file"
+        if cmd not in {"/file", "/xplain"}
     ]
     commands.append(BotCommand("history", "command history"))
     await application.bot.set_my_commands(commands)
