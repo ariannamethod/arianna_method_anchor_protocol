@@ -12,6 +12,7 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = LOG_DIR / "tommy.sqlite3"
 RESONANCE_DB_PATH = LOG_DIR / "resonance.sqlite3"
 
+RETENTION_DAYS = int(os.getenv("TOMMY_RETENTION_DAYS", "30"))
 
 GREETED = False
 
@@ -22,7 +23,7 @@ def _init_db() -> None:
         conn.execute(
             "CREATE TABLE IF NOT EXISTS events (ts TEXT, type TEXT, message TEXT)"
         )
-
+        conn.execute("CREATE INDEX IF NOT EXISTS events_ts_idx ON events (ts)")
 
 def _init_resonance_db() -> None:
     with sqlite3.connect(RESONANCE_DB_PATH, timeout=30) as conn:
@@ -37,10 +38,7 @@ def _init_resonance_db() -> None:
         for col in ["role", "sentiment", "snapshots", "summary"]:
             if col not in cols:
                 conn.execute(f"ALTER TABLE resonance ADD COLUMN {col} TEXT")
-
-
-_init_db()
-_init_resonance_db()
+        conn.execute("CREATE INDEX IF NOT EXISTS resonance_ts_idx ON resonance (ts)")
 
 
 def _init_greeting_state() -> None:
@@ -54,7 +52,20 @@ def _init_greeting_state() -> None:
         GREETED = cur.fetchone() is not None
 
 
+def cleanup_old_records(days: int = RETENTION_DAYS) -> None:
+    """Remove events and resonance entries older than the given number of days."""
+
+    cutoff = datetime.now() - timedelta(days=days)
+    with sqlite3.connect(DB_PATH, timeout=30) as conn:
+        conn.execute("DELETE FROM events WHERE ts < ?", (cutoff.isoformat(),))
+    with sqlite3.connect(RESONANCE_DB_PATH, timeout=30) as conn:
+        conn.execute("DELETE FROM resonance WHERE ts < ?", (cutoff.isoformat(),))
+
+
+_init_db()
+_init_resonance_db()
 _init_greeting_state()
+cleanup_old_records()
 
 # Grok 3 (Tommy) system prompt — см. выше, можешь подредактировать по вкусу
 GROK_PROMPT = (
@@ -323,3 +334,4 @@ async def run_daily_tasks() -> None:
         compare_with_previous(snapshot_today, snapshot_yesterday)
     predict_tomorrow(snapshot_today)
     update_resonance()
+    cleanup_old_records()
