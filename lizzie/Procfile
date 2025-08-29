@@ -1,2 +1,2 @@
-web: uvicorn lizzie:app --host 0.0.0.0 --port ${PORT:-8000}
-bot: python telegram_bot.py
+web: uvicorn lizzie:app --host 0.0.0.0 --port ${PORT:-8000} --log-level info
+bot: python -u telegram_bot.py
