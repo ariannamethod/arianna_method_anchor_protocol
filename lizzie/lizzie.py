@@ -213,20 +213,19 @@ class LizzieAgent:
 
     async def resonate(self, message: str) -> str:
         """Core resonance function - Lizzie's main interface"""
-        from arianna_utils.agent_logic import get_agent_logic
-        
-        # Инициализируем общую логику для Lizzie
-        logic = get_agent_logic("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
-        
-        # Строим контекст из цитирований
-        context_block = await logic.build_context_block(message)
-        
-        # Если есть контекст, добавляем его к сообщению
-        enhanced_message = f"{context_block}{message}" if context_block else message
-        
         try:
             await self._ensure_assistant()
             await self._ensure_thread()
+
+            # Инициализируем общую логику ПОСЛЕ инициализации клиента
+            from arianna_utils.agent_logic import get_agent_logic
+            logic = get_agent_logic("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
+            
+            # Строим контекст из цитирований
+            context_block = await logic.build_context_block(message)
+            
+            # Если есть контекст, добавляем его к сообщению
+            enhanced_message = f"{context_block}{message}" if context_block else message
 
             # Add enhanced message to thread
             start = time.monotonic()
