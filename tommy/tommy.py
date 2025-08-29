@@ -7,10 +7,17 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import sqlite3
 
+from arianna_utils.log_utils import prune_old_records, prepare_log_file
+
 LOG_DIR = Path("logs/wulf")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = LOG_DIR / "tommy.sqlite3"
 RESONANCE_DB_PATH = LOG_DIR / "resonance.sqlite3"
+
+EVENT_RETENTION_DAYS = 30
+RESONANCE_RETENTION_DAYS = 30
+LOG_RETENTION_DAYS = 7
+MAX_LOG_SIZE = 5 * 1024 * 1024
 
 
 def _init_db() -> None:
@@ -64,7 +71,9 @@ GROK_PROMPT = (
 
 
 def log_event(msg: str, log_type: str = "info") -> None:
-    log_file = LOG_DIR / f"{datetime.now().strftime('%Y-%m-%d')}.jsonl"
+    log_file = prepare_log_file(
+        LOG_DIR, max_size=MAX_LOG_SIZE, retention_days=LOG_RETENTION_DAYS
+    )
     entry = {"timestamp": datetime.now().isoformat(), "type": log_type, "message": msg}
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -73,6 +82,7 @@ def log_event(msg: str, log_type: str = "info") -> None:
             "INSERT INTO events (ts, type, message) VALUES (?, ?, ?)",
             (datetime.now().isoformat(), log_type, msg),
         )
+        prune_old_records(conn, "events", EVENT_RETENTION_DAYS)
 
 
 def get_last_user_command(
@@ -115,6 +125,7 @@ def update_resonance(agent: str = "tommy") -> None:
                 summary,
             ),
         )
+        prune_old_records(conn, "resonance", RESONANCE_RETENTION_DAYS)
 
 
 def _compute_sentiment(text: str) -> str:
@@ -198,8 +209,7 @@ async def chat(message: str) -> str:
             context_block = "Relevant context:\n" + "\n--\n".join(blocks) + "\n\n"
 
     prompt = (
-        f"{context_block}Available commands: {commands}\n"
-        f"User: {message}\nTommy:"
+        f"{context_block}Available commands: {commands}\n" f"User: {message}\nTommy:"
     )
     try:
         response = await query_grok3(prompt)
