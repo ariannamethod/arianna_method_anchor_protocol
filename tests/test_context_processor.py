@@ -23,8 +23,7 @@ def test_parse_and_store_file(tmp_path, monkeypatch):
 
     engine = SQLiteVectorStore(tmp_path / "vectors.db")
     result = asyncio.run(cnp.parse_and_store_file(str(sample), engine=engine))
-
-    assert "hello world" in result
+    assert result.startswith("Tags:")
     hits = engine.query_similar(embed_text("hello world"), top_k=1)
     assert hits and "hello world" in hits[0].content
 
