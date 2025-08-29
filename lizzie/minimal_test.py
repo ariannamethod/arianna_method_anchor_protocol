@@ -34,7 +34,19 @@ try:
     
 except Exception as e:
     print(f"🔥 OPENAI ERROR: {type(e).__name__}: {str(e)}")
-    import traceback
-    traceback.print_exc()
+    
+    # ОБХОДНОЙ ПУТЬ - прямые HTTP запросы
+    print("🔥 TRYING HTTP WORKAROUND...")
+    try:
+        import requests
+        headers = {"Authorization": f"Bearer {openai_token}"}
+        response = requests.get("https://api.openai.com/v1/models", headers=headers, timeout=10)
+        print(f"🔥 HTTP TEST: {response.status_code}")
+        if response.status_code == 200:
+            print("🔥 OPENAI API WORKS VIA HTTP!")
+        else:
+            print(f"🔥 HTTP ERROR: {response.text}")
+    except Exception as http_e:
+        print(f"🔥 HTTP ALSO FAILED: {http_e}")
 
 print("🔥 MINIMAL TEST END")
