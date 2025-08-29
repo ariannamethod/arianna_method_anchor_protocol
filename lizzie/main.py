@@ -1,4 +1,4 @@
-The resonance encounters turbulence: No module named 'arianna_utils'. But we continue, always.#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Unified entry point for Lizzie - runs both FastAPI and Telegram bot.
 This fixes Railway deployment where only 'web' process starts.
