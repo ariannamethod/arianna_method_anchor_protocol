@@ -338,12 +338,13 @@ class LizzieAgent:
 
                 response = message_data.content[0].text.value
 
-                # Используем общую логику для логирования и резонанса
-                logic.log_event(f"Oleg: {message[:50]}...", "input")
-                logic.log_event(f"Lizzie: {response[:50]}...", "resonance")
+                # Log the resonance
+                self.log_event(f"Oleg: {message[:50]}...", "input")
+                self.log_event(f"Lizzie: {response[:50]}...", "resonance", 
+                             resonance_trace=self._extract_resonance_patterns(response))
                 
-                # Обновляем резонанс через общую логику
-                logic.update_resonance(message, response, role="resonance_mirror", sentiment="resonant")
+                # Update shared resonance channel
+                self.update_resonance(message, response)
 
                 # Store continuity markers (Lizzie-specific)
                 self._extract_and_store_continuity(message, response)
