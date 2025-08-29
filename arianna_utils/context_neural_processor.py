@@ -507,21 +507,49 @@ _STOPWORDS = {
 
 
 def _simple_summarize(text: str, max_sentences: int = 3) -> str:
+    """Create a smart summary instead of just extracting sentences."""
+    
+    # If text is very short, return as-is
+    if len(text) < 100:
+        return text.strip()
+    
+    # Try to create an actual summary, not just extract sentences
     sentences = re.split(r"(?<=[.!?])\s+", text.strip())
     if not sentences:
-        return text[:200]
+        return text[:200] + "..." if len(text) > 200 else text
+    
+    # Get key information from the text
     words = [w for w in re.findall(r"\w+", text.lower()) if w not in _STOPWORDS]
     freq = Counter(words)
-    scored = []
-    for idx, sent in enumerate(sentences):
-        score = sum(freq.get(w, 0) for w in re.findall(r"\w+", sent.lower()) if w not in _STOPWORDS)
-        scored.append((score, idx, sent))
-    top = heapq.nlargest(max_sentences, scored)
-    ordered = [s for _, _, s in sorted(top, key=lambda x: x[1])]
-    summary = " ".join(ordered)
-    if len(summary) > 500:
-        summary = summary[:500].rsplit(" ", 1)[0] + "..."
-    return summary
+    
+    # Find most important topics
+    top_words = [word for word, _ in freq.most_common(10)]
+    
+    # Create a synthetic summary based on key topics
+    if top_words:
+        summary = f"This document discusses {', '.join(top_words[:5])}."
+        
+        # Add context about document type/content
+        if any(word in text.lower() for word in ["function", "class", "import", "def"]):
+            summary += " Contains code or technical documentation."
+        elif any(word in text.lower() for word in ["user", "system", "process"]):
+            summary += " Focuses on system or user processes."
+        elif any(word in text.lower() for word in ["data", "information", "content"]):
+            summary += " Contains data or informational content."
+            
+        # Add length info
+        word_count = len(words)
+        if word_count > 1000:
+            summary += f" Large document with {word_count} words."
+        elif word_count > 100:
+            summary += f" Medium document with {word_count} words."
+        else:
+            summary += f" Short document with {word_count} words."
+            
+        return summary
+    else:
+        # Fallback to truncated text
+        return text[:300] + "..." if len(text) > 300 else text
 
 
 # Async paraphrase
