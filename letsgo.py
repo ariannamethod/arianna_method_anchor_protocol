@@ -28,8 +28,18 @@ import shutil
 import shlex
 import textwrap
 import ast
-from tommy import tommy
-from tommy.tommy_logic import process_file_with_context
+# Removed direct tommy imports - now using agent registry
+try:
+    from arianna_utils.agent_registry import chat_with_agent, get_available_agents
+    AGENTS_AVAILABLE = True
+except ImportError:
+    AGENTS_AVAILABLE = False
+    
+# Keep file processing import for /file command
+try:
+    from tommy.tommy_logic import process_file_with_context
+except ImportError:
+    process_file_with_context = None
 
 _NO_COLOR_FLAG = "--no-color"
 USE_COLOR = (
@@ -152,8 +162,11 @@ def _ensure_log_dir() -> None:
 def log(message: str) -> None:
     with LOG_PATH.open("a") as fh:
         fh.write(f"{datetime.utcnow().isoformat()} {message}\n")
+    # Optional agent logging - no hard dependency
     try:
-        tommy.log_event(message)
+        if AGENTS_AVAILABLE:
+            from tommy import tommy
+            tommy.log_event(message)
     except Exception:
         pass
 
@@ -502,10 +515,15 @@ async def handle_file(user: str) -> Tuple[str, str | None]:
     if not path:
         reply = "Usage: /file <path>"
         return reply, reply
+    
+    if not process_file_with_context:
+        reply = "File processing not available. Agent system required."
+        return reply, color(reply, SETTINGS.red)
+    
     try:
         result = await process_file_with_context(path)
     except Exception as e:
-        result = f"Error: {e}"
+        result = f"File processing error: {e}"
     return result, result
 
 
@@ -568,6 +586,14 @@ async def handle_ping(_: str) -> Tuple[str, str | None]:
     return reply, reply
 
 
+async def handle_agents(_: str) -> Tuple[str, str | None]:
+    if AGENTS_AVAILABLE:
+        reply = get_available_agents()
+    else:
+        reply = "Agent system not available. Core terminal only."
+    return reply, reply
+
+
 CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
     "/status": (handle_status, "show system metrics"),
     "/cpu": (handle_cpu, "show CPU load"),
@@ -584,6 +610,7 @@ CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
     "/help": (handle_help, "help message"),
     "/search": (handle_search, "search command history"),
     "/ping": (handle_ping, "reply with pong"),
+    "/agents": (handle_agents, "list available agents"),
 }
 
 COMMAND_HELP: Dict[str, str] = {
@@ -605,6 +632,7 @@ COMMAND_HELP: Dict[str, str] = {
     "/help": "Usage: /help [command]\nList commands or show detailed help.",
     "/search": "Usage: /search <pattern>\nSearch the command history.",
     "/ping": "Usage: /ping\nReply with pong.",
+    "/agents": "Usage: /agents\nList available AI agents in the system.",
 }
 
 COMMAND_HANDLERS: Dict[str, Handler] = {
@@ -679,11 +707,15 @@ async def main() -> None:
         elif looks_like_python(user):
             reply, colored = await handle_py(f"/py {user}")
         else:
-            try:
-                reply = await tommy.chat(user)
-                colored = reply
-            except Exception as e:
-                reply = f"Tommy error: {str(e)}. Terminal continues without resonance."
+            if AGENTS_AVAILABLE:
+                try:
+                    reply = await chat_with_agent(user)
+                    colored = reply
+                except Exception as e:
+                    reply = f"Agent error: {str(e)}. Terminal continues without resonance."
+                    colored = color(reply, SETTINGS.red)
+            else:
+                reply = "No agents available. Core terminal only."
                 colored = color(reply, SETTINGS.red)
         if colored is not None:
             print(colored)
