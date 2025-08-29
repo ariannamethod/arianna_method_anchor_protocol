@@ -29,7 +29,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # ДИАГНОСТИКА: проверяем что видит Railway
 print(f"🔥 Current working dir: {os.getcwd()}")
 print(f"🔥 Files in current dir: {os.listdir('.')}")
+print(f"🔥 Parent dir exists: {Path('..').exists()}")
+if Path('..').exists():
+    print(f"🔥 Files in parent: {os.listdir('..')}")
 print(f"🔥 sys.path: {sys.path[:3]}")
+print(f"🔥 arianna_utils exists: {Path('../arianna_utils').exists()}")
 
 import lizzie
 from lizzie import app as fastapi_app
