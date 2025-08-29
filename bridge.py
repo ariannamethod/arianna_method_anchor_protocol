@@ -275,7 +275,8 @@ async def upload_file(
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     dest = os.path.join(UPLOAD_DIR, file.filename)
     with open(dest, "wb") as fh:
-        fh.write(await file.read())
+        while chunk := await file.read(8192):
+            fh.write(chunk)
     return {"filename": file.filename}
 
 
