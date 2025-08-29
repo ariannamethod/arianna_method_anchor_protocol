@@ -177,6 +177,9 @@ async def main():
     """Main function - runs both FastAPI and Telegram bot."""
     
     logger.info("=== Lizzie Unified Startup ===")
+    logger.info("🔥 DIAGNOSTIC: This is the REAL main.py - not a test bot!")
+    logger.info(f"🔥 File path: {__file__}")
+    logger.info(f"🔥 Current working directory: {os.getcwd()}")
     
     # Check required environment variables
     lizzie_token = os.getenv("LIZZIE_TOKEN")
