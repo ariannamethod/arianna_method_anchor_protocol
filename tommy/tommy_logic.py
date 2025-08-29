@@ -211,7 +211,7 @@ async def process_file_with_context(path: str, engine=None) -> str:
     Returns
     -------
     str
-        Full result from ``parse_and_store_file``.
+        Summary and metadata from ``parse_and_store_file``.
     """
 
     from arianna_utils.context_neural_processor import parse_and_store_file

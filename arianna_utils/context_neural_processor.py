@@ -1065,7 +1065,7 @@ async def parse_and_store_file(
     log_event(
         f"Processed {os.path.basename(path)}: tags={tags}, summary={summary[:50]}..., relevance={relevance:.2f} (pulse={pulse:.2f}, quiver={quiver:.2f}, sense={sense:.2f})"
     )
-    return f"{text}\n\nTags: {tags}\nSummary: {summary}\nRelevance: {relevance:.2f}"
+    return f"Tags: {tags}\nSummary: {summary}\nRelevance: {relevance:.2f}"
 
 
 async def create_repo_snapshot(
@@ -1118,8 +1118,8 @@ if __name__ == "__main__":
 
     async def test():
         if args.path:
-            text = await parse_and_store_file(args.path)
-            logger.info(text)
+            result = await parse_and_store_file(args.path)
+            logger.info(result)
         if args.snapshot:
             await create_repo_snapshot()
 
