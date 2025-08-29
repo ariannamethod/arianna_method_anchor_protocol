@@ -41,13 +41,27 @@ class LizzieAgent:
         self.thread_id = None
         self._init_db()
         self._init_resonance_db()
-        if not os.getenv("LIZZIE_TOKEN"):
+        lizzie_token = os.getenv("LIZZIE_TOKEN")
+        openai_token = os.getenv("OPENAILIZZIE_TOKEN")
+        
+        if not lizzie_token:
             self.log_event("Missing LIZZIE_TOKEN environment variable", "error")
+            print("ERROR: LIZZIE_TOKEN environment variable not set")
             raise ValueError("LIZZIE_TOKEN environment variable not set")
-        if not os.getenv("OPENAILIZZIE_TOKEN"):
+        if not openai_token:
             self.log_event("Missing OPENAILIZZIE_TOKEN environment variable", "error")
+            print("ERROR: OPENAILIZZIE_TOKEN environment variable not set")
             raise ValueError("OPENAILIZZIE_TOKEN environment variable not set")
-        self.client = openai.OpenAI(api_key=os.getenv("OPENAILIZZIE_TOKEN"))
+            
+        print(f"Initializing Lizzie with tokens: LIZZIE_TOKEN={'*'*len(lizzie_token[:-4])}{lizzie_token[-4:]}, OPENAI_TOKEN={'*'*len(openai_token[:-4])}{openai_token[-4:]}")
+        
+        try:
+            self.client = openai.OpenAI(api_key=openai_token)
+            self.log_event("OpenAI client initialized successfully", "system")
+        except Exception as e:
+            self.log_event(f"Failed to initialize OpenAI client: {str(e)}", "error")
+            print(f"ERROR: Failed to initialize OpenAI client: {str(e)}")
+            raise
 
     def _init_db(self) -> None:
         with sqlite3.connect(DB_PATH, timeout=30) as conn:
@@ -468,10 +482,32 @@ class ChatRequest(BaseModel):
 
 @app.get("/")
 async def root() -> dict[str, str]:
-    return {"status": "lizzie-ready"}
+    return {"status": "lizzie-ready", "timestamp": datetime.now().isoformat()}
+
+
+@app.get("/health")
+async def health_check() -> dict[str, str]:
+    """Health check endpoint for Railway diagnostics."""
+    try:
+        lizzie = await get_lizzie()
+        return {
+            "status": "healthy",
+            "assistant_id": lizzie.assistant_id or "not_initialized",
+            "thread_id": lizzie.thread_id or "not_initialized",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy", 
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 
 @app.post("/chat")
 async def chat_endpoint(req: ChatRequest) -> dict[str, str]:
-    response = await chat(req.message)
-    return {"response": response}
+    try:
+        response = await chat(req.message)
+        return {"response": response}
+    except Exception as e:
+        return {"error": str(e), "message": "Resonance field encountered turbulence"}
