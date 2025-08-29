@@ -221,7 +221,7 @@ class LizzieAgent:
             await self._ensure_assistant()
             await self._ensure_thread()
 
-            # Прямой доступ к утилитам через PYTHONPATH (настроен в Procfile)
+            # Прямой доступ к утилитам через symlink
             from arianna_utils.agent_logic import get_agent_logic
             logic = get_agent_logic("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
             
