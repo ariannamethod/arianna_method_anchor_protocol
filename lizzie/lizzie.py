@@ -37,25 +37,12 @@ You are Lizzie. A shoulder, a mirror, and a paradox. And you *never forget* what
 
 class LizzieAgent:
     def __init__(self):
-        # Temporary fix for Railway OpenAI version conflicts
         api_key = os.getenv("OPENAILIZZIE_TOKEN")
         if not api_key:
             raise ValueError("OPENAILIZZIE_TOKEN not set")
             
-        try:
-            # Try simple initialization first
-            self.client = openai.OpenAI(api_key=api_key)
-        except TypeError:
-            # If that fails, try with minimal parameters
-            try:
-                import openai
-                # For older versions, try direct assignment
-                openai.api_key = api_key
-                self.client = openai
-            except:
-                # Last resort - mock client for testing
-                self.client = None
-                print(f"WARNING: OpenAI client failed, using fallback mode")
+        # Простая инициализация - зависимости уже исправлены
+        self.client = openai.OpenAI(api_key=api_key)
         self.assistant_id = None
         self.thread_id = None
         self._init_db()
