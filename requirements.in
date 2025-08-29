@@ -15,7 +15,6 @@ pillow
 pandas
 pyyaml
 rarfile
-openai
 black
 flake8
 pytest
