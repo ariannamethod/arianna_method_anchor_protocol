@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import random
 import re
 import sys
 from datetime import datetime, timedelta
@@ -15,6 +16,13 @@ RESONANCE_DB_PATH = LOG_DIR / "resonance.sqlite3"
 RETENTION_DAYS = int(os.getenv("TOMMY_RETENTION_DAYS", "30"))
 
 GREETED = False
+
+GREETINGS = [
+    "Привет! Томми на связи.",
+    "Салют, это Томми.",
+    "Yo! Tommy here.",
+    "Хэй, я Томми — готов к коду?",
+]
 
 
 def _init_db() -> None:
@@ -189,8 +197,10 @@ def _fetch_latest_evaluation() -> str:
 
 async def _mood_echo() -> str:
     code = (
-        "import random;print('Tommy mood:', "
-        "random.choice(['calm','curious','charged']))"
+        "import random;"
+        "moods={'calm':'(-‿‿-)','curious':'(o_O)','charged':'⚡','free':'ʕ•ᴥ•ʔ'};"
+        "mood,art=random.choice(list(moods.items()));"
+        "print(f'Tommy mood: {mood}\n{art}')"
     )
     proc = await asyncio.create_subprocess_exec(
         sys.executable,
@@ -209,8 +219,9 @@ async def chat(message: str) -> str:
     if not GREETED:
         GREETED = True
         log_event("Tommy greeting", "greeting")
+        greeting = random.choice(GREETINGS)
         mood = await _mood_echo()
-        return f"Привет! Я Томми.\n{mood}"
+        return f"{greeting}\n{mood}"
 
     from .tommy_logic import fetch_context
 
