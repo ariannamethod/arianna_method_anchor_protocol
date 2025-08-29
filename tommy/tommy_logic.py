@@ -211,16 +211,58 @@ async def process_file_with_context(path: str, engine=None) -> str:
     Returns
     -------
     str
-        Summary and metadata from ``parse_and_store_file``.
+        Processed summary optimized for Tommy's resonance.
     """
 
     from arianna_utils.context_neural_processor import parse_and_store_file
 
-    result = await parse_and_store_file(path, engine=engine)
-
-    match = re.search(r"Summary: (.*)", result)
-    summary = match.group(1).splitlines()[0] if match else ""
-    message = f"Processed {path}: {summary[:200]}" if summary else f"Processed {path}"
-    _tommy.log_event(message)
-    _tommy.update_resonance()
-    return result
+    try:
+        result = await parse_and_store_file(path, engine=engine)
+        
+        # Extract components from result
+        lines = result.split('\n')
+        tags = ""
+        summary = ""
+        relevance = 0.0
+        
+        for line in lines:
+            if line.startswith("Tags: "):
+                tags = line[6:]
+            elif line.startswith("Summary: "):
+                summary = line[9:]
+            elif line.startswith("Relevance: "):
+                try:
+                    relevance = float(line[11:])
+                except ValueError:
+                    relevance = 0.0
+        
+        # Create Tommy's enhanced response
+        if summary and len(summary) > 20:
+            # Tommy's interpretation of the file
+            tommy_response = f"🔥 File processed: {path}\n\n"
+            tommy_response += f"📋 Tags: {tags}\n"
+            tommy_response += f"📝 Summary: {summary}\n"
+            tommy_response += f"⚡ Relevance: {relevance:.2f}\n\n"
+            
+            # Add Tommy's commentary based on relevance
+            if relevance > 0.5:
+                tommy_response += "💥 This file resonates with the Arianna Method! High-energy content detected."
+            elif relevance > 0.2:
+                tommy_response += "⚡ Moderate resonance detected. File contains relevant patterns."
+            else:
+                tommy_response += "📊 Basic file processing complete. Low resonance with core patterns."
+        else:
+            # Fallback for files that couldn't be properly processed
+            tommy_response = f"⚠️ File processed: {path}\n\nCould not extract meaningful summary. Raw result:\n{result}"
+        
+        # Log for resonance
+        log_message = f"Processed {path}: {summary[:100] if summary else 'no summary'}"
+        _tommy.log_event(log_message)
+        _tommy.update_resonance()
+        
+        return tommy_response
+        
+    except Exception as e:
+        error_msg = f"💥 Error processing {path}: {str(e)}"
+        _tommy.log_event(f"File processing error: {str(e)}", "error")
+        return error_msg
