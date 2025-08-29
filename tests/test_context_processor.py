@@ -25,7 +25,11 @@ def test_parse_and_store_file(tmp_path, monkeypatch):
     result = asyncio.run(cnp.parse_and_store_file(str(sample), engine=engine))
     assert result.startswith("Tags:")
     hits = engine.query_similar(embed_text("hello world"), top_k=1)
-    assert hits and "hello world" in hits[0].content
+    assert hits
+    summary_line = result.split("Summary: ")[1].split("\nRelevance")[0]
+    assert summary_line in hits[0].content
+    assert f"FILE {sample.name}" in hits[0].content
+    assert "RELEVANCE:" in hits[0].content
 
 
 def test_paraphrase_uses_full_text(monkeypatch):
@@ -57,3 +61,22 @@ def test_parse_and_store_file_uses_full_summary(tmp_path, monkeypatch):
 
     summary_line = result.split("Summary: ")[1].split("\nRelevance")[0]
     assert "END" in summary_line
+
+
+def test_parse_and_store_file_omits_original_text(tmp_path, monkeypatch):
+    monkeypatch.setattr(cnp, "CACHE_DB", tmp_path / "cache.db")
+    cnp.init_cache_db()
+    monkeypatch.setattr(cnp, "esn", _DummyESN())
+
+    original = "Original text that should not appear"
+    sample = tmp_path / "sample.txt"
+    sample.write_text(original)
+
+    async def fake_paraphrase(text, prefix="Summarize this for kids: "):
+        return "summary"
+
+    monkeypatch.setattr(cnp, "paraphrase", fake_paraphrase)
+    engine = SQLiteVectorStore(tmp_path / "vectors.db")
+    result = asyncio.run(cnp.parse_and_store_file(str(sample), engine=engine))
+    assert "summary" in result
+    assert original not in result
