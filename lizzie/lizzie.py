@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 import sqlite3
-import openai
+from openai import AsyncOpenAI
 from fastapi import FastAPI
 from pydantic import BaseModel
 
@@ -45,7 +45,7 @@ class LizzieAgent:
         if not token:
             self.log_event("Missing OPENAILIZZIE_TOKEN environment variable", "error")
             raise ValueError("OPENAILIZZIE_TOKEN environment variable not set")
-        self.client = openai.OpenAI(api_key=token)
+        self.client = AsyncOpenAI(api_key=os.getenv("OPENAILIZZIE_TOKEN"))
 
     def _init_db(self) -> None:
         with sqlite3.connect(DB_PATH, timeout=30) as conn:
@@ -73,14 +73,14 @@ class LizzieAgent:
 
         try:
             # Try to find existing Lizzie assistant
-            assistants = self.client.beta.assistants.list()
+            assistants = await self.client.beta.assistants.list()
             for assistant in assistants.data:
                 if assistant.name == "Lizzie":
                     self.assistant_id = assistant.id
                     return
 
             # Create new assistant if not found
-            assistant = self.client.beta.assistants.create(
+            assistant = await self.client.beta.assistants.create(
                 name="Lizzie",
                 instructions=LIZZIE_INSTRUCTIONS,
                 model="gpt-4-turbo-preview",
@@ -96,7 +96,7 @@ class LizzieAgent:
     async def _ensure_thread(self):
         """Create conversation thread if needed"""
         if not self.thread_id:
-            thread = self.client.beta.threads.create()
+            thread = await self.client.beta.threads.create()
             self.thread_id = thread.id
 
     def log_event(
@@ -190,12 +190,12 @@ class LizzieAgent:
             await self._ensure_thread()
 
             # Add message to thread
-            self.client.beta.threads.messages.create(
+            await self.client.beta.threads.messages.create(
                 thread_id=self.thread_id, role="user", content=message
             )
 
             # Create and wait for run
-            run = self.client.beta.threads.runs.create(
+            run = await self.client.beta.threads.runs.create(
                 thread_id=self.thread_id, assistant_id=self.assistant_id
             )
 
@@ -203,11 +203,12 @@ class LizzieAgent:
             timeout = 60
 
             # Poll for completion with timeout
-            while run.status in ["queued", "in_progress"] and (
-                time.monotonic() - start_time
-            ) < timeout:
+            while (
+                run.status in ["queued", "in_progress"]
+                and (time.monotonic() - start_time) < timeout
+            ):
                 await asyncio.sleep(1)
-                run = self.client.beta.threads.runs.retrieve(
+                run = await self.client.beta.threads.runs.retrieve(
                     thread_id=self.thread_id, run_id=run.id
                 )
 
@@ -219,7 +220,7 @@ class LizzieAgent:
 
             if run.status == "completed":
                 # Get the latest assistant message
-                messages = self.client.beta.threads.messages.list(
+                messages = await self.client.beta.threads.messages.list(
                     thread_id=self.thread_id, limit=10, order="desc"
                 )
 
@@ -236,7 +237,7 @@ class LizzieAgent:
                             f"Unexpected message roles: {[m.role for m in messages.data]}",
                             "error",
                         )
-                        messages = self.client.beta.threads.messages.list(
+                        messages = await self.client.beta.threads.messages.list(
                             thread_id=self.thread_id, limit=10, order="desc"
                         )
                         assistant_msgs = [
@@ -269,9 +270,7 @@ class LizzieAgent:
                 return response
             else:
                 if wait_time >= timeout and run.status in ["queued", "in_progress"]:
-                    error_msg = (
-                        f"Run timed out after {int(wait_time)}s with status: {run.status}"
-                    )
+                    error_msg = f"Run timed out after {int(wait_time)}s with status: {run.status}"
                 else:
                     error_msg = f"Run failed with status: {run.status}"
                     if run.last_error:
