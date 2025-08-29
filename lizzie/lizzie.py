@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import re
+import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -9,6 +10,9 @@ import sqlite3
 import openai
 from fastapi import FastAPI
 from pydantic import BaseModel
+
+# Add project root to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 LOG_DIR = Path("logs/agents")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -205,7 +209,7 @@ class LizzieAgent:
             await self._ensure_thread()
 
             # Используем общую логику
-            from ..arianna_utils.agent_logic import get_agent_logic
+            from arianna_utils.agent_logic import get_agent_logic
             logic = get_agent_logic("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
             
             # Строим контекст из цитирований  
