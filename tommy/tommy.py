@@ -29,6 +29,11 @@ def _init_resonance_db() -> None:
             "ts TEXT, agent TEXT, role TEXT, sentiment TEXT, snapshots TEXT, summary TEXT"
             ")"
         )
+        cur = conn.execute("PRAGMA table_info(resonance)")
+        cols = {row[1] for row in cur.fetchall()}
+        for col in ["role", "sentiment", "snapshots", "summary"]:
+            if col not in cols:
+                conn.execute(f"ALTER TABLE resonance ADD COLUMN {col} TEXT")
 
 
 _init_db()
