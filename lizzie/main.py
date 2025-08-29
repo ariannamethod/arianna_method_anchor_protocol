@@ -19,7 +19,13 @@ from telegram.ext import (
     filters,
 )
 
-# Import Lizzie modules
+# Import Lizzie modules - avoid circular imports
+import sys
+from pathlib import Path
+
+# Add current directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+
 import lizzie
 from lizzie import app as fastapi_app
 
@@ -97,41 +103,56 @@ async def start_telegram_bot():
         logger.error("LIZZIE_TOKEN not set - Telegram bot disabled")
         return
     
-    logger.info("Starting Lizzie Telegram bot...")
+    logger.info(f"Starting Lizzie Telegram bot with token ...{token[-4:]}")
     
     try:
+        logger.info("Building Telegram application...")
         application = ApplicationBuilder().token(token).build()
         
-        # Set bot commands
+        logger.info("Testing bot token...")
+        # Test the token first
+        try:
+            bot_info = await application.bot.get_me()
+            logger.info(f"Bot info: @{bot_info.username} ({bot_info.first_name})")
+        except Exception as e:
+            logger.error(f"Bot token test failed: {e}")
+            raise
+        
+        logger.info("Setting bot commands...")
         commands = [
             BotCommand("start", "Start conversation with Lizzie")
         ]
         await application.bot.set_my_commands(commands)
         
-        # Add handlers
+        logger.info("Adding message handlers...")
         application.add_handler(CommandHandler("start", handle_start))
         application.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
         )
         application.add_error_handler(error_handler)
         
-        # Initialize and start
+        logger.info("Initializing Telegram application...")
         await application.initialize()
+        
+        logger.info("Starting Telegram application...")
         await application.start()
+        
+        logger.info("Starting polling...")
         await application.updater.start_polling(drop_pending_updates=True)
         
-        logger.info("Telegram bot started successfully")
+        logger.info("Telegram bot started successfully - now listening for messages")
         
         # Keep running
         try:
             await asyncio.Future()  # Run forever
         finally:
+            logger.info("Shutting down Telegram bot...")
             await application.updater.stop()
             await application.stop()
             await application.shutdown()
             
     except Exception as e:
-        logger.error(f"Failed to start Telegram bot: {e}")
+        logger.error(f"Failed to start Telegram bot: {e}", exc_info=True)
         raise
 
 
@@ -176,15 +197,57 @@ async def main():
     
     try:
         # Start both services concurrently
-        await asyncio.gather(
-            start_fastapi(),
-            start_telegram_bot(),
-            return_exceptions=True
-        )
+        logger.info("Starting both FastAPI and Telegram bot...")
+        
+        # Create tasks explicitly to catch startup errors
+        fastapi_task = asyncio.create_task(start_fastapi())
+        telegram_task = asyncio.create_task(start_telegram_bot())
+        
+        # Give FastAPI time to start first
+        await asyncio.sleep(1)
+        
+        if fastapi_task.done():
+            if fastapi_task.exception():
+                logger.error(f"FastAPI failed during startup: {fastapi_task.exception()}")
+                raise fastapi_task.exception()
+            else:
+                logger.info("FastAPI started successfully")
+        else:
+            logger.info("FastAPI starting...")
+        
+        # Give Telegram bot more time to initialize
+        await asyncio.sleep(3)
+            
+        if telegram_task.done():
+            if telegram_task.exception():
+                logger.error(f"Telegram bot failed during startup: {telegram_task.exception()}")
+                # Don't raise - let FastAPI continue running
+                logger.warning("Continuing with FastAPI only")
+                telegram_task = None
+            else:
+                logger.info("Telegram bot started successfully")
+        else:
+            logger.info("Telegram bot still starting...")
+        
+        # Wait for completion
+        if telegram_task:
+            results = await asyncio.gather(fastapi_task, telegram_task, return_exceptions=True)
+        else:
+            # Only wait for FastAPI if Telegram failed
+            results = await asyncio.gather(fastapi_task, return_exceptions=True)
+        
+        # Check final results
+        for i, result in enumerate(results):
+            service_name = ["FastAPI", "Telegram"][i]
+            if isinstance(result, Exception):
+                logger.error(f"{service_name} failed: {result}", exc_info=result)
+            else:
+                logger.info(f"{service_name} completed normally")
+                
     except KeyboardInterrupt:
         logger.info("Shutdown requested")
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
+        logger.error(f"Fatal error in main: {e}", exc_info=True)
         sys.exit(1)
 
 
