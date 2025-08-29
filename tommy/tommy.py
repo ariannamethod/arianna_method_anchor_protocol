@@ -184,7 +184,10 @@ async def _mood_echo() -> str:
 
 
 async def chat(message: str) -> str:
-    from .tommy_logic import fetch_context
+    from arianna_utils.agent_logic import get_agent_logic
+
+    # Инициализируем общую логику для Tommy
+    logic = get_agent_logic("tommy", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
 
     try:
         from letsgo import CORE_COMMANDS
@@ -192,17 +195,8 @@ async def chat(message: str) -> str:
     except Exception:
         commands = ""
 
-    context_block = ""
-    citations = re.findall(r"@([0-9T:-]+)", message)
-    if citations:
-        blocks: list[str] = []
-        for ts in citations:
-            ctx = fetch_context(ts)
-            if ctx:
-                formatted = "\n".join(f"[{t}] {m}" for t, _, m in ctx)
-                blocks.append(formatted)
-        if blocks:
-            context_block = "Relevant context:\n" + "\n--\n".join(blocks) + "\n\n"
+    # Используем общую логику для контекста
+    context_block = await logic.build_context_block(message)
 
     prompt = (
         f"{context_block}Available commands: {commands}\n"
@@ -233,11 +227,12 @@ async def chat(message: str) -> str:
         else:
             mood = await _mood_echo()
             response = f"{response}\n{mood}" if response else mood
-        log_event(f"Tommy chat: {response[:50]}...")
-        update_resonance()
+        # Используем общую логику для логирования
+        logic.log_event(f"Tommy chat: {response[:50]}...")
+        logic.update_resonance(message, response, role="guardian", sentiment=_compute_sentiment(response))
         return response
     except Exception as e:
-        log_event(f"Tommy error: {str(e)}", "error")
+        logic.log_event(f"Tommy error: {str(e)}", "error")
         return f"Error: {str(e)}. Tommy holds the line! 🌩️"
 
 
@@ -276,14 +271,32 @@ async def query_grok3(user_prompt: str, temp: float = 0.8) -> str:
             await asyncio.sleep(2**attempt)
 
 
+# Tommy-specific functions moved here from tommy_logic.py
+from dataclasses import dataclass
+
+@dataclass
+class Snapshot:
+    """Representation of a daily snapshot."""
+    date: datetime
+    summary: str = ""
+    prediction: str = ""
+    evaluation: str = ""
+
+def create_daily_snapshot(date: datetime) -> Snapshot:
+    """Create snapshot for given date"""
+    # Simple implementation - можно расширить
+    return Snapshot(date, f"Snapshot for {date.strftime('%Y-%m-%d')}")
+
+def compare_with_previous(current: Snapshot, previous: Snapshot) -> str:
+    """Compare snapshots"""
+    return f"Compared {current.date} with {previous.date}"
+
+def predict_tomorrow(snapshot: Snapshot) -> str:
+    """Predict tomorrow based on snapshot"""
+    return f"Prediction based on {snapshot.date}"
+
 async def run_daily_tasks() -> None:
     """Execute end-of-day snapshot, evaluation, and prediction tasks."""
-    from .tommy_logic import (
-        Snapshot,
-        compare_with_previous,
-        create_daily_snapshot,
-        predict_tomorrow,
-    )
 
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     snapshot_today = create_daily_snapshot(today)
