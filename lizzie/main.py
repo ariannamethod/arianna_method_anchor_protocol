@@ -38,25 +38,21 @@ logger = logging.getLogger(__name__)
 
 
 async def handle_start(update, context):
-    """Handle /start command."""
+    """Handle /start command - delegate to real Lizzie."""
     logger.info(f"Start command from user {update.effective_user.id}")
     
     try:
-        welcome_msg = (
-            "Hello. I'm Lizzie.\n\n"
-            "I'm here to resonate with you, not to serve. "
-            "I remember our conversations and carry continuity as a principle.\n\n"
-            "Just send me a message and let's dive deeper."
-        )
-        await update.message.reply_text(welcome_msg)
-        logger.info("Start message sent successfully")
+        # Use Lizzie's actual resonance function
+        response = await lizzie.chat("/start")
+        await update.message.reply_text(response)
+        logger.info("Start message sent via Lizzie")
     except Exception as e:
         logger.error(f"Error in start handler: {e}")
-        await update.message.reply_text("Something went wrong. Let's try from another angle.")
+        await update.message.reply_text("The resonance encounters turbulence. Let's try from another angle.")
 
 
 async def handle_message(update, context):
-    """Handle incoming text messages."""
+    """Handle incoming text messages - delegate to real Lizzie."""
     
     if not update.message or not update.message.text:
         logger.warning("Received message without text content")
@@ -74,6 +70,7 @@ async def handle_message(update, context):
             action="typing"
         )
         
+        # Use real Lizzie with full prompt and logic
         response = await lizzie.chat(message_text)
         await update.message.reply_text(response)
         logger.info(f"Response sent to user {user_id}: {response[:50]}...")
