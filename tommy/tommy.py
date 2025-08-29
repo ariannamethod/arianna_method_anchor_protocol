@@ -13,6 +13,9 @@ DB_PATH = LOG_DIR / "tommy.sqlite3"
 RESONANCE_DB_PATH = LOG_DIR / "resonance.sqlite3"
 
 
+GREETED = False
+
+
 def _init_db() -> None:
     with sqlite3.connect(DB_PATH, timeout=30) as conn:
         conn.execute("PRAGMA journal_mode=WAL")
@@ -38,6 +41,20 @@ def _init_resonance_db() -> None:
 
 _init_db()
 _init_resonance_db()
+
+
+def _init_greeting_state() -> None:
+    """Set greeting flag based on stored events."""
+
+    global GREETED
+    with sqlite3.connect(DB_PATH, timeout=30) as conn:
+        cur = conn.execute(
+            "SELECT 1 FROM events WHERE type = 'greeting' LIMIT 1"
+        )
+        GREETED = cur.fetchone() is not None
+
+
+_init_greeting_state()
 
 # Grok 3 (Tommy) system prompt — см. выше, можешь подредактировать по вкусу
 GROK_PROMPT = (
@@ -176,6 +193,14 @@ async def _mood_echo() -> str:
 
 
 async def chat(message: str) -> str:
+    global GREETED
+
+    if not GREETED:
+        GREETED = True
+        log_event("Tommy greeting", "greeting")
+        mood = await _mood_echo()
+        return f"Привет! Я Томми.\n{mood}"
+
     from .tommy_logic import fetch_context
 
     try:
