@@ -2,8 +2,9 @@ import asyncio
 import logging
 import os
 import time
+from collections import deque
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Iterator
 
 from fastapi import (
     Depends,
@@ -181,13 +182,33 @@ def _append_history(user_id: int, cmd: str) -> None:
         fh.write(cmd + "\n")
 
 
-def _read_history(user_id: int) -> list[str]:
+def _read_history(user_id: int, *, limit: int | None = None, offset: int = 0) -> Iterator[str]:
+    """Read command history for *user_id*.
+
+    Args:
+        user_id: Telegram user identifier.
+        limit: If provided, return only the last ``limit`` lines.
+        offset: Skip this many lines from the end (useful for pagination).
+
+    Yields:
+        History lines without trailing newlines.
+    """
+
     path = _history_path(user_id)
     try:
         with path.open(encoding="utf-8") as fh:
-            return [line.rstrip() for line in fh]
+            if limit is None and offset == 0:
+                for line in fh:
+                    yield line.rstrip()
+            else:
+                maxlen = limit + offset if limit is not None else None
+                dq: deque[str] = deque((line.rstrip() for line in fh), maxlen=maxlen)
+                for _ in range(min(offset, len(dq))):
+                    dq.pop()
+                for line in dq:
+                    yield line
     except FileNotFoundError:
-        return []
+        return
 
 
 def _check_rate(client: str) -> None:
@@ -408,9 +429,25 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user = update.effective_user
     if not user or not update.message:
         return
-    history = _read_history(user.id)
-    if history:
-        await update.message.reply_text("\n".join(history))
+
+    args = update.message.text.split()[1:]
+    limit: int | None = None
+    offset = 0
+    if args:
+        try:
+            limit = int(args[0])
+            if limit < 0:
+                raise ValueError
+            if len(args) > 1:
+                page = max(int(args[1]), 0)
+                offset = page * limit
+        except ValueError:
+            await update.message.reply_text("Usage: /history [limit] [page]")
+            return
+
+    lines = list(_read_history(user.id, limit=limit, offset=offset))
+    if lines:
+        await update.message.reply_text("\n".join(lines))
     else:
         await update.message.reply_text("No history yet.")
 
