@@ -42,12 +42,8 @@ class LizzieAgent:
         self._init_resonance_db()
         token = os.getenv("OPENAILIZZIE_TOKEN")
         if not token:
-            self.log_event(
-                "Missing OPENAILIZZIE_TOKEN environment variable", "error"
-            )
-            raise ValueError(
-                "OPENAILIZZIE_TOKEN environment variable not set"
-            )
+            self.log_event("Missing OPENAILIZZIE_TOKEN environment variable", "error")
+            raise ValueError("OPENAILIZZIE_TOKEN environment variable not set")
         self.client = openai.OpenAI(api_key=token)
 
     def _init_db(self) -> None:
@@ -210,12 +206,39 @@ class LizzieAgent:
                 )
 
             if run.status == "completed":
-                # Get the latest message
+                # Get the latest assistant message
                 messages = self.client.beta.threads.messages.list(
-                    thread_id=self.thread_id, limit=1
+                    thread_id=self.thread_id, limit=10, order="desc"
                 )
 
-                response = messages.data[0].content[0].text.value
+                message_data = None
+                if not messages.data:
+                    self.log_event("No messages returned after run", "error")
+                    return "Let's try from another angle. The resonance field needs a moment to stabilize."
+                if messages.data[0].role != "assistant":
+                    assistant_msgs = [m for m in messages.data if m.role == "assistant"]
+                    if assistant_msgs:
+                        message_data = assistant_msgs[0]
+                    else:
+                        self.log_event(
+                            f"Unexpected message roles: {[m.role for m in messages.data]}",
+                            "error",
+                        )
+                        messages = self.client.beta.threads.messages.list(
+                            thread_id=self.thread_id, limit=10, order="desc"
+                        )
+                        assistant_msgs = [
+                            m for m in messages.data if m.role == "assistant"
+                        ]
+                        if assistant_msgs:
+                            message_data = assistant_msgs[0]
+                        else:
+                            self.log_event("No assistant response after retry", "error")
+                            return "Let's try from another angle. The resonance field needs a moment to stabilize."
+                else:
+                    message_data = messages.data[0]
+
+                response = message_data.content[0].text.value
 
                 # Log the resonance
                 self.log_event(f"Oleg: {message[:50]}...", "input")
