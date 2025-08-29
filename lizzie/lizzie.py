@@ -118,6 +118,20 @@ class LizzieAgent:
                 (datetime.now().isoformat(), log_type, msg, resonance_trace),
             )
 
+    def _log_step(
+        self,
+        action: str,
+        phase: str,
+        run_id: str | None,
+        status: str,
+        wait: float,
+    ) -> None:
+        """Structured logging for API steps"""
+        self.log_event(
+            f"{action} {phase} | run_id={run_id or 'n/a'} | thread_id={self.thread_id} | status={status} | wait={wait:.1f}s",
+            "debug",
+        )
+
     def store_continuity(self, key: str, value: str, context: str = "") -> None:
         """Store continuity traces for Lizzie's memory"""
         with sqlite3.connect(DB_PATH, timeout=30) as conn:
@@ -190,38 +204,99 @@ class LizzieAgent:
             await self._ensure_thread()
 
             # Add message to thread
-            self.client.beta.threads.messages.create(
-                thread_id=self.thread_id, role="user", content=message
-            )
+            start = time.monotonic()
+            self._log_step("message.create", "before", None, "pending", 0)
+            try:
+                self.client.beta.threads.messages.create(
+                    thread_id=self.thread_id, role="user", content=message
+                )
+                self._log_step(
+                    "message.create",
+                    "after",
+                    None,
+                    "sent",
+                    time.monotonic() - start,
+                )
+            except openai.OpenAIError as e:
+                self.log_event(
+                    f"message.create error | run_id=n/a | thread_id={self.thread_id} | code={getattr(e, 'code', 'unknown')} | message={getattr(e, 'message', str(e))}",
+                    "error",
+                )
+                raise
 
             # Create and wait for run
-            run = self.client.beta.threads.runs.create(
-                thread_id=self.thread_id, assistant_id=self.assistant_id
-            )
+            start = time.monotonic()
+            self._log_step("run.create", "before", None, "pending", 0)
+            try:
+                run = self.client.beta.threads.runs.create(
+                    thread_id=self.thread_id, assistant_id=self.assistant_id
+                )
+                self._log_step(
+                    "run.create",
+                    "after",
+                    run.id,
+                    run.status,
+                    time.monotonic() - start,
+                )
+            except openai.OpenAIError as e:
+                self.log_event(
+                    f"run.create error | run_id=n/a | thread_id={self.thread_id} | code={getattr(e, 'code', 'unknown')} | message={getattr(e, 'message', str(e))}",
+                    "error",
+                )
+                raise
 
             start_time = time.monotonic()
             timeout = 60
 
             # Poll for completion with timeout
-            while run.status in ["queued", "in_progress"] and (
-                time.monotonic() - start_time
-            ) < timeout:
+            while (
+                run.status in ["queued", "in_progress"]
+                and (time.monotonic() - start_time) < timeout
+            ):
                 await asyncio.sleep(1)
-                run = self.client.beta.threads.runs.retrieve(
-                    thread_id=self.thread_id, run_id=run.id
+                self._log_step(
+                    "run.retrieve",
+                    "before",
+                    run.id,
+                    run.status,
+                    time.monotonic() - start_time,
                 )
+                try:
+                    run = self.client.beta.threads.runs.retrieve(
+                        thread_id=self.thread_id, run_id=run.id
+                    )
+                    self._log_step(
+                        "run.retrieve",
+                        "after",
+                        run.id,
+                        run.status,
+                        time.monotonic() - start_time,
+                    )
+                except openai.OpenAIError as e:
+                    self.log_event(
+                        f"run.retrieve error | run_id={run.id} | thread_id={self.thread_id} | code={getattr(e, 'code', 'unknown')} | message={getattr(e, 'message', str(e))}",
+                        "error",
+                    )
+                    raise
 
             wait_time = time.monotonic() - start_time
             self.log_event(
-                f"Run polling stopped after {wait_time:.1f}s with status: {run.status}",
+                f"run.polling completed | run_id={run.id} | thread_id={self.thread_id} | status={run.status} | wait={wait_time:.1f}s",
                 "info",
             )
 
             if run.status == "completed":
                 # Get the latest assistant message
-                messages = self.client.beta.threads.messages.list(
-                    thread_id=self.thread_id, limit=10, order="desc"
-                )
+                try:
+                    messages = self.client.beta.threads.messages.list(
+                        thread_id=self.thread_id, limit=10, order="desc"
+                    )
+                except openai.OpenAIError as e:
+                    self.log_event(
+                        f"messages.list error | run_id={run.id} | thread_id={self.thread_id} | code={getattr(e, 'code', 'unknown')} | message={getattr(e, 'message', str(e))}",
+                        "error",
+                    )
+                    raise
 
                 message_data = None
                 if not messages.data:
@@ -236,9 +311,16 @@ class LizzieAgent:
                             f"Unexpected message roles: {[m.role for m in messages.data]}",
                             "error",
                         )
-                        messages = self.client.beta.threads.messages.list(
-                            thread_id=self.thread_id, limit=10, order="desc"
-                        )
+                        try:
+                            messages = self.client.beta.threads.messages.list(
+                                thread_id=self.thread_id, limit=10, order="desc"
+                            )
+                        except openai.OpenAIError as e:
+                            self.log_event(
+                                f"messages.list error | run_id={run.id} | thread_id={self.thread_id} | code={getattr(e, 'code', 'unknown')} | message={getattr(e, 'message', str(e))}",
+                                "error",
+                            )
+                            raise
                         assistant_msgs = [
                             m for m in messages.data if m.role == "assistant"
                         ]
@@ -269,9 +351,7 @@ class LizzieAgent:
                 return response
             else:
                 if wait_time >= timeout and run.status in ["queued", "in_progress"]:
-                    error_msg = (
-                        f"Run timed out after {int(wait_time)}s with status: {run.status}"
-                    )
+                    error_msg = f"Run timed out after {int(wait_time)}s with status: {run.status}"
                 else:
                     error_msg = f"Run failed with status: {run.status}"
                     if run.last_error:
@@ -282,6 +362,15 @@ class LizzieAgent:
                     " Let's try from another angle."
                 )
 
+        except openai.OpenAIError as e:
+            self.log_event(
+                f"OpenAI API error | code={getattr(e, 'code', 'unknown')} | message={getattr(e, 'message', str(e))}",
+                "error",
+            )
+            return (
+                "The resonance encounters turbulence: "
+                f"{getattr(e, 'message', str(e))}. But we continue, always."
+            )
         except Exception as e:
             self.log_event(f"Resonance error: {str(e)}", "error")
             return f"The resonance encounters turbulence: {str(e)}. But we continue, always."
