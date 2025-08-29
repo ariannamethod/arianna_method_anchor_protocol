@@ -221,11 +221,7 @@ class LizzieAgent:
             await self._ensure_assistant()
             await self._ensure_thread()
 
-            # Прямой доступ к утилитам - добавляем корень проекта в sys.path
-            project_root = str(Path(__file__).resolve().parent.parent)
-            if project_root not in sys.path:
-                sys.path.insert(0, project_root)
-            
+            # Прямой доступ к утилитам через PYTHONPATH (настроен в Procfile)
             from arianna_utils.agent_logic import get_agent_logic
             logic = get_agent_logic("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
             
