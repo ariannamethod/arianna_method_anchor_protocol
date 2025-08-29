@@ -1047,8 +1047,9 @@ async def parse_and_store_file(
     # Vector store
     try:
         content = (
-            f"FILE {os.path.basename(path)} TAGS: {tags}\n"
-            f"SUMMARY: {summary}\nRELEVANCE: {relevance:.2f}\nTEXT: {text}"
+            f"TAGS: {tags}\n"
+            f"SUMMARY: {summary}\n"
+            f"RELEVANCE: {relevance:.2f}"
         )
         embedding = embed_text(content)
         engine.add_memory("document", content, embedding)
