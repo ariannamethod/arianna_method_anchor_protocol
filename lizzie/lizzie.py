@@ -222,8 +222,6 @@ class LizzieAgent:
             await self._ensure_thread()
 
             # Используем промежуточный мост для доступа к утилитам
-            # agent_bridge.py находится в корне проекта, на уровень выше
-            sys.path.insert(0, str(Path(__file__).parent.parent))
             from agent_bridge import get_agent_utils
             logic = get_agent_utils("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
             
