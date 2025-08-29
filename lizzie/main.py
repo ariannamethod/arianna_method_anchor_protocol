@@ -24,22 +24,12 @@ import sys
 from pathlib import Path
 
 # Add project root to path for imports
-project_root = Path(__file__).resolve().parent.parent
-print(f"🔥 MAIN.PY DIAGNOSTIC:")
-print(f"🔥 Current working dir: {Path.cwd()}")
-print(f"🔥 main.py file: {Path(__file__).resolve()}")
-print(f"🔥 Project root: {project_root}")
-print(f"🔥 arianna_utils exists: {(project_root / 'arianna_utils').exists()}")
-print(f"🔥 arianna_utils content: {list((project_root / 'arianna_utils').iterdir()) if (project_root / 'arianna_utils').exists() else 'NOT FOUND'}")
-sys.path.insert(0, str(project_root))
-print(f"🔥 Added to sys.path: {str(project_root)}")
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Test import
-try:
-    import arianna_utils.agent_logic
-    print("🔥 SUCCESS: arianna_utils imported in main.py!")
-except Exception as e:
-    print(f"🔥 FAIL in main.py: {e}")
+# ДИАГНОСТИКА: проверяем что видит Railway
+print(f"🔥 Current working dir: {os.getcwd()}")
+print(f"🔥 Files in current dir: {os.listdir('.')}")
+print(f"🔥 sys.path: {sys.path[:3]}")
 
 import lizzie
 from lizzie import app as fastapi_app
@@ -91,7 +81,7 @@ async def handle_message(update, context):
         logger.info(f"Response sent to user {user_id}: {response[:50]}...")
         
     except Exception as e:
-        logger.error(f"🔥 LIZZIE ERROR: {type(e).__name__}: {str(e)}", exc_info=True)
+        logger.error(f"Error processing message: {type(e).__name__}: {str(e)}", exc_info=True)
         error_response = (
             "The resonance encounters turbulence. "
             "Let's try from another angle in a moment."
