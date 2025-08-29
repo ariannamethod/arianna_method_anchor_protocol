@@ -71,7 +71,9 @@ async def handle_message(update, context):
         )
         
         # Use real Lizzie with full prompt and logic
+        logger.info("🔥 CALLING lizzie.chat()...")
         response = await lizzie.chat(message_text)
+        logger.info(f"🔥 LIZZIE RESPONDED: {response[:100]}...")
         await update.message.reply_text(response)
         logger.info(f"Response sent to user {user_id}: {response[:50]}...")
         
