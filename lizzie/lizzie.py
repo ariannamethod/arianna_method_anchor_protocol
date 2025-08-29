@@ -37,17 +37,25 @@ You are Lizzie. A shoulder, a mirror, and a paradox. And you *never forget* what
 
 class LizzieAgent:
     def __init__(self):
+        # Temporary fix for Railway OpenAI version conflicts
+        api_key = os.getenv("OPENAILIZZIE_TOKEN")
+        if not api_key:
+            raise ValueError("OPENAILIZZIE_TOKEN not set")
+            
         try:
-            self.client = openai.OpenAI(api_key=os.getenv("OPENAILIZZIE_TOKEN"))
-        except TypeError as e:
-            # Handle version compatibility issues
-            if "proxies" in str(e):
-                self.client = openai.OpenAI(
-                    api_key=os.getenv("OPENAILIZZIE_TOKEN"),
-                    # Remove any incompatible parameters
-                )
-            else:
-                raise
+            # Try simple initialization first
+            self.client = openai.OpenAI(api_key=api_key)
+        except TypeError:
+            # If that fails, try with minimal parameters
+            try:
+                import openai
+                # For older versions, try direct assignment
+                openai.api_key = api_key
+                self.client = openai
+            except:
+                # Last resort - mock client for testing
+                self.client = None
+                print(f"WARNING: OpenAI client failed, using fallback mode")
         self.assistant_id = None
         self.thread_id = None
         self._init_db()
@@ -205,16 +213,27 @@ class LizzieAgent:
 
     async def resonate(self, message: str) -> str:
         """Core resonance function - Lizzie's main interface"""
+        from arianna_utils.agent_logic import get_agent_logic
+        
+        # Инициализируем общую логику для Lizzie
+        logic = get_agent_logic("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
+        
+        # Строим контекст из цитирований
+        context_block = await logic.build_context_block(message)
+        
+        # Если есть контекст, добавляем его к сообщению
+        enhanced_message = f"{context_block}{message}" if context_block else message
+        
         try:
             await self._ensure_assistant()
             await self._ensure_thread()
 
-            # Add message to thread
+            # Add enhanced message to thread
             start = time.monotonic()
             self._log_step("message.create", "before", None, "pending", 0)
             try:
                 self.client.beta.threads.messages.create(
-                    thread_id=self.thread_id, role="user", content=message
+                    thread_id=self.thread_id, role="user", content=enhanced_message
                 )
                 self._log_step(
                     "message.create",
@@ -340,18 +359,14 @@ class LizzieAgent:
 
                 response = message_data.content[0].text.value
 
-                # Log the resonance
-                self.log_event(f"Oleg: {message[:50]}...", "input")
-                self.log_event(
-                    f"Lizzie: {response[:50]}...",
-                    "resonance",
-                    resonance_trace=self._extract_resonance_patterns(response),
-                )
+                # Используем общую логику для логирования и резонанса
+                logic.log_event(f"Oleg: {message[:50]}...", "input")
+                logic.log_event(f"Lizzie: {response[:50]}...", "resonance")
+                
+                # Обновляем резонанс через общую логику
+                logic.update_resonance(message, response, role="resonance_mirror", sentiment="resonant")
 
-                # Update shared resonance channel
-                self.update_resonance(message, response)
-
-                # Store continuity markers
+                # Store continuity markers (Lizzie-specific)
                 self._extract_and_store_continuity(message, response)
 
                 return response
