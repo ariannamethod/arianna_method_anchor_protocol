@@ -221,9 +221,13 @@ class LizzieAgent:
             await self._ensure_assistant()
             await self._ensure_thread()
 
-            # Используем промежуточный мост для доступа к утилитам
-            from agent_bridge import get_agent_utils
-            logic = get_agent_utils("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
+            # Прямой доступ к утилитам - добавляем корень проекта в sys.path
+            project_root = str(Path(__file__).resolve().parent.parent)
+            if project_root not in sys.path:
+                sys.path.insert(0, project_root)
+            
+            from arianna_utils.agent_logic import get_agent_logic
+            logic = get_agent_logic("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
             
             # Строим контекст из цитирований  
             context_block = await logic.build_context_block(message)
