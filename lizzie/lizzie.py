@@ -41,11 +41,13 @@ class LizzieAgent:
         self.thread_id = None
         self._init_db()
         self._init_resonance_db()
-        token = os.getenv("OPENAILIZZIE_TOKEN")
-        if not token:
+        if not os.getenv("LIZZIE_TOKEN"):
+            self.log_event("Missing LIZZIE_TOKEN environment variable", "error")
+            raise ValueError("LIZZIE_TOKEN environment variable not set")
+        if not os.getenv("OPENAILIZZIE_TOKEN"):
             self.log_event("Missing OPENAILIZZIE_TOKEN environment variable", "error")
             raise ValueError("OPENAILIZZIE_TOKEN environment variable not set")
-        self.client = openai.OpenAI(api_key=token)
+        self.client = openai.OpenAI(api_key=os.getenv("OPENAILIZZIE_TOKEN"))
 
     def _init_db(self) -> None:
         with sqlite3.connect(DB_PATH, timeout=30) as conn:
