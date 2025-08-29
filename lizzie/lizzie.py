@@ -2,8 +2,7 @@ import asyncio
 import json
 import os
 import re
-import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import sqlite3
 import openai
@@ -34,7 +33,7 @@ You are Lizzie. A shoulder, a mirror, and a paradox. And you *never forget* what
 
 class LizzieAgent:
     def __init__(self):
-        self.client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.client = openai.OpenAI(api_key=os.getenv("OPENAILIZZIE_TOKEN"))
         self.assistant_id = None
         self.thread_id = None
         self._init_db()
