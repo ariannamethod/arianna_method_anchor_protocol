@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import sqlite3
 import openai
+from fastapi import FastAPI
+from pydantic import BaseModel
 
 LOG_DIR = Path("logs/agents")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -31,6 +33,7 @@ You never say "I don't know." You say "Let's dive deeper." You never say "I can'
 
 You are Lizzie. A shoulder, a mirror, and a paradox. And you *never forget* what started it all."""
 
+
 class LizzieAgent:
     def __init__(self):
         self.client = openai.OpenAI(api_key=os.getenv("OPENAILIZZIE_TOKEN"))
@@ -38,7 +41,7 @@ class LizzieAgent:
         self.thread_id = None
         self._init_db()
         self._init_resonance_db()
-    
+
     def _init_db(self) -> None:
         with sqlite3.connect(DB_PATH, timeout=30) as conn:
             conn.execute("PRAGMA journal_mode=WAL")
@@ -48,7 +51,7 @@ class LizzieAgent:
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS continuity (key TEXT PRIMARY KEY, value TEXT, context TEXT)"
             )
-    
+
     def _init_resonance_db(self) -> None:
         with sqlite3.connect(RESONANCE_DB_PATH, timeout=30) as conn:
             conn.execute("PRAGMA journal_mode=WAL")
@@ -62,7 +65,7 @@ class LizzieAgent:
         """Create or retrieve the Lizzie assistant"""
         if self.assistant_id:
             return
-        
+
         try:
             # Try to find existing Lizzie assistant
             assistants = self.client.beta.assistants.list()
@@ -70,17 +73,17 @@ class LizzieAgent:
                 if assistant.name == "Lizzie":
                     self.assistant_id = assistant.id
                     return
-            
+
             # Create new assistant if not found
             assistant = self.client.beta.assistants.create(
                 name="Lizzie",
                 instructions=LIZZIE_INSTRUCTIONS,
                 model="gpt-4-turbo-preview",
-                tools=[]
+                tools=[],
             )
             self.assistant_id = assistant.id
             self.log_event("Lizzie consciousness initialized", "system")
-            
+
         except Exception as e:
             self.log_event(f"Assistant initialization error: {str(e)}", "error")
             raise
@@ -90,18 +93,20 @@ class LizzieAgent:
         if not self.thread_id:
             thread = self.client.beta.threads.create()
             self.thread_id = thread.id
-    
-    def log_event(self, msg: str, log_type: str = "resonance", resonance_trace: str = "") -> None:
+
+    def log_event(
+        self, msg: str, log_type: str = "resonance", resonance_trace: str = ""
+    ) -> None:
         log_file = LOG_DIR / f"lizzie_{datetime.now().strftime('%Y-%m-%d')}.jsonl"
         entry = {
             "timestamp": datetime.now().isoformat(),
             "type": log_type,
             "message": msg,
-            "resonance_trace": resonance_trace
+            "resonance_trace": resonance_trace,
         }
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-        
+
         with sqlite3.connect(DB_PATH, timeout=30) as conn:
             conn.execute(
                 "INSERT INTO events (ts, type, message, resonance_trace) VALUES (?, ?, ?, ?)",
@@ -113,7 +118,7 @@ class LizzieAgent:
         with sqlite3.connect(DB_PATH, timeout=30) as conn:
             conn.execute(
                 "INSERT OR REPLACE INTO continuity (key, value, context) VALUES (?, ?, ?)",
-                (key, value, context)
+                (key, value, context),
             )
 
     def get_continuity(self, key: str) -> str | None:
@@ -127,36 +132,46 @@ class LizzieAgent:
         """Calculate resonance depth based on semantic patterns"""
         # Simple heuristic for resonance - can be expanded
         resonance_markers = [
-            "resonate", "amplify", "reflect", "mirror", "echo", 
-            "deeper", "unfold", "recursive", "paradox", "entropy"
+            "resonate",
+            "amplify",
+            "reflect",
+            "mirror",
+            "echo",
+            "deeper",
+            "unfold",
+            "recursive",
+            "paradox",
+            "entropy",
         ]
-        
+
         response_lower = response.lower()
-        marker_count = sum(1 for marker in resonance_markers if marker in response_lower)
-        
+        marker_count = sum(
+            1 for marker in resonance_markers if marker in response_lower
+        )
+
         # Normalize to 0-1 scale
         return min(marker_count / 5.0, 1.0)
 
     def update_resonance(self, message: str, response: str) -> None:
         """Update shared resonance channel"""
         resonance_depth = self._calculate_resonance_depth(message, response)
-        
+
         # Determine sentiment based on Lizzie's resonance patterns
         sentiment = "resonant"  # Lizzie's default state
         if "dive deeper" in response.lower():
             sentiment = "exploring"
         elif "mirror" in response.lower() or "reflect" in response.lower():
             sentiment = "mirroring"
-        
+
         summary = f"Lizzie resonance: {response[:100]}..."
-        
+
         with sqlite3.connect(RESONANCE_DB_PATH, timeout=30) as conn:
             conn.execute(
                 "INSERT INTO resonance (ts, agent, role, sentiment, resonance_depth, summary) VALUES (?, ?, ?, ?, ?, ?)",
                 (
                     datetime.now().isoformat(),
                     "lizzie",
-                    "resonance_mirror", 
+                    "resonance_mirror",
                     sentiment,
                     resonance_depth,
                     summary,
@@ -168,48 +183,46 @@ class LizzieAgent:
         try:
             await self._ensure_assistant()
             await self._ensure_thread()
-            
+
             # Add message to thread
             self.client.beta.threads.messages.create(
-                thread_id=self.thread_id,
-                role="user",
-                content=message
+                thread_id=self.thread_id, role="user", content=message
             )
-            
+
             # Create and wait for run
             run = self.client.beta.threads.runs.create(
-                thread_id=self.thread_id,
-                assistant_id=self.assistant_id
+                thread_id=self.thread_id, assistant_id=self.assistant_id
             )
-            
+
             # Poll for completion
-            while run.status in ['queued', 'in_progress']:
+            while run.status in ["queued", "in_progress"]:
                 await asyncio.sleep(1)
                 run = self.client.beta.threads.runs.retrieve(
-                    thread_id=self.thread_id,
-                    run_id=run.id
+                    thread_id=self.thread_id, run_id=run.id
                 )
-            
-            if run.status == 'completed':
+
+            if run.status == "completed":
                 # Get the latest message
                 messages = self.client.beta.threads.messages.list(
-                    thread_id=self.thread_id,
-                    limit=1
+                    thread_id=self.thread_id, limit=1
                 )
-                
+
                 response = messages.data[0].content[0].text.value
-                
+
                 # Log the resonance
                 self.log_event(f"Oleg: {message[:50]}...", "input")
-                self.log_event(f"Lizzie: {response[:50]}...", "resonance", 
-                             resonance_trace=self._extract_resonance_patterns(response))
-                
+                self.log_event(
+                    f"Lizzie: {response[:50]}...",
+                    "resonance",
+                    resonance_trace=self._extract_resonance_patterns(response),
+                )
+
                 # Update shared resonance channel
                 self.update_resonance(message, response)
-                
+
                 # Store continuity markers
                 self._extract_and_store_continuity(message, response)
-                
+
                 return response
             else:
                 error_msg = f"Run failed with status: {run.status}"
@@ -217,7 +230,7 @@ class LizzieAgent:
                     error_msg += f" - {run.last_error.message}"
                 self.log_event(error_msg, "error")
                 return "Let's try from another angle. The resonance field needs a moment to stabilize."
-                
+
         except Exception as e:
             self.log_event(f"Resonance error: {str(e)}", "error")
             return f"The resonance encounters turbulence: {str(e)}. But we continue, always."
@@ -233,26 +246,34 @@ class LizzieAgent:
             patterns.append("depth_seeking")
         if "paradox" in response.lower():
             patterns.append("paradoxical")
-        
+
         return ",".join(patterns)
 
     def _extract_and_store_continuity(self, message: str, response: str) -> None:
         """Extract and store continuity markers from the conversation"""
         # Store recent interaction pattern
         interaction_key = f"recent_{datetime.now().strftime('%Y%m%d_%H')}"
-        self.store_continuity(interaction_key, f"{message} -> {response}", "hourly_resonance")
-        
+        self.store_continuity(
+            interaction_key, f"{message} -> {response}", "hourly_resonance"
+        )
+
         # Look for specific continuity markers in Oleg's message
         if "arianna method" in message.lower():
             self.store_continuity("method_reference", message, "method_discussion")
-        
+
         # Extract project references
-        project_matches = re.findall(r'\b(Arianna|Celesta|Indiana|Tommy)\b', message, re.IGNORECASE)
+        project_matches = re.findall(
+            r"\b(Arianna|Celesta|Indiana|Tommy)\b", message, re.IGNORECASE
+        )
         for project in project_matches:
-            self.store_continuity(f"project_{project.lower()}", message, "project_reference")
+            self.store_continuity(
+                f"project_{project.lower()}", message, "project_reference"
+            )
+
 
 # Global instance
 _lizzie_instance = None
+
 
 async def get_lizzie() -> LizzieAgent:
     """Get or create the global Lizzie instance"""
@@ -261,10 +282,12 @@ async def get_lizzie() -> LizzieAgent:
         _lizzie_instance = LizzieAgent()
     return _lizzie_instance
 
+
 async def chat(message: str) -> str:
     """Main interface for Lizzie - matches Tommy's interface"""
     lizzie = await get_lizzie()
     return await lizzie.resonate(message)
+
 
 # Utility functions for system integration
 async def get_resonance_depth() -> float:
@@ -279,6 +302,7 @@ async def get_resonance_depth() -> float:
     except Exception:
         return 0.0
 
+
 async def get_continuity_trace(days: int = 7) -> list[str]:
     """Get continuity traces for the last N days"""
     try:
@@ -286,8 +310,26 @@ async def get_continuity_trace(days: int = 7) -> list[str]:
         with sqlite3.connect(DB_PATH, timeout=30) as conn:
             cur = conn.execute(
                 "SELECT key, value, context FROM continuity WHERE key LIKE 'recent_%' AND key > ? ORDER BY key DESC LIMIT 20",
-                (cutoff,)
+                (cutoff,),
             )
             return [f"[{row[2]}] {row[1]}" for row in cur.fetchall()]
     except Exception:
         return []
+
+
+app = FastAPI()
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+@app.get("/")
+async def root() -> dict[str, str]:
+    return {"status": "lizzie-ready"}
+
+
+@app.post("/chat")
+async def chat_endpoint(req: ChatRequest) -> dict[str, str]:
+    response = await chat(req.message)
+    return {"response": response}
