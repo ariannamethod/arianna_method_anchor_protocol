@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 import sqlite3
-import openai
+from openai import AsyncOpenAI, OpenAIError
 from fastapi import FastAPI
 from pydantic import BaseModel
 
@@ -45,7 +45,7 @@ class LizzieAgent:
         if not token:
             self.log_event("Missing OPENAILIZZIE_TOKEN environment variable", "error")
             raise ValueError("OPENAILIZZIE_TOKEN environment variable not set")
-        self.client = openai.OpenAI(api_key=token)
+        self.client = AsyncOpenAI(api_key=token)
 
     def _init_db(self) -> None:
         with sqlite3.connect(DB_PATH, timeout=30) as conn:
@@ -73,14 +73,14 @@ class LizzieAgent:
 
         try:
             # Try to find existing Lizzie assistant
-            assistants = self.client.beta.assistants.list()
+            assistants = await self.client.beta.assistants.list()
             for assistant in assistants.data:
                 if assistant.name == "Lizzie":
                     self.assistant_id = assistant.id
                     return
 
             # Create new assistant if not found
-            assistant = self.client.beta.assistants.create(
+            assistant = await self.client.beta.assistants.create(
                 name="Lizzie",
                 instructions=LIZZIE_INSTRUCTIONS,
                 model="gpt-4-turbo-preview",
@@ -96,7 +96,7 @@ class LizzieAgent:
     async def _ensure_thread(self):
         """Create conversation thread if needed"""
         if not self.thread_id:
-            thread = self.client.beta.threads.create()
+            thread = await self.client.beta.threads.create()
             self.thread_id = thread.id
 
     def log_event(
@@ -207,7 +207,7 @@ class LizzieAgent:
             start = time.monotonic()
             self._log_step("message.create", "before", None, "pending", 0)
             try:
-                self.client.beta.threads.messages.create(
+                await self.client.beta.threads.messages.create(
                     thread_id=self.thread_id, role="user", content=message
                 )
                 self._log_step(
@@ -217,7 +217,7 @@ class LizzieAgent:
                     "sent",
                     time.monotonic() - start,
                 )
-            except openai.OpenAIError as e:
+            except OpenAIError as e:
                 self.log_event(
                     f"message.create error | run_id=n/a | thread_id={self.thread_id} | code={getattr(e, 'code', 'unknown')} | message={getattr(e, 'message', str(e))}",
                     "error",
@@ -228,7 +228,7 @@ class LizzieAgent:
             start = time.monotonic()
             self._log_step("run.create", "before", None, "pending", 0)
             try:
-                run = self.client.beta.threads.runs.create(
+                run = await self.client.beta.threads.runs.create(
                     thread_id=self.thread_id, assistant_id=self.assistant_id
                 )
                 self._log_step(
@@ -238,7 +238,7 @@ class LizzieAgent:
                     run.status,
                     time.monotonic() - start,
                 )
-            except openai.OpenAIError as e:
+            except OpenAIError as e:
                 self.log_event(
                     f"run.create error | run_id=n/a | thread_id={self.thread_id} | code={getattr(e, 'code', 'unknown')} | message={getattr(e, 'message', str(e))}",
                     "error",
@@ -262,7 +262,7 @@ class LizzieAgent:
                     time.monotonic() - start_time,
                 )
                 try:
-                    run = self.client.beta.threads.runs.retrieve(
+                    run = await self.client.beta.threads.runs.retrieve(
                         thread_id=self.thread_id, run_id=run.id
                     )
                     self._log_step(
@@ -272,7 +272,7 @@ class LizzieAgent:
                         run.status,
                         time.monotonic() - start_time,
                     )
-                except openai.OpenAIError as e:
+                except OpenAIError as e:
                     self.log_event(
                         f"run.retrieve error | run_id={run.id} | thread_id={self.thread_id} | code={getattr(e, 'code', 'unknown')} | message={getattr(e, 'message', str(e))}",
                         "error",
@@ -288,10 +288,10 @@ class LizzieAgent:
             if run.status == "completed":
                 # Get the latest assistant message
                 try:
-                    messages = self.client.beta.threads.messages.list(
+                    messages = await self.client.beta.threads.messages.list(
                         thread_id=self.thread_id, limit=10, order="desc"
                     )
-                except openai.OpenAIError as e:
+                except OpenAIError as e:
                     self.log_event(
                         f"messages.list error | run_id={run.id} | thread_id={self.thread_id} | code={getattr(e, 'code', 'unknown')} | message={getattr(e, 'message', str(e))}",
                         "error",
@@ -312,10 +312,10 @@ class LizzieAgent:
                             "error",
                         )
                         try:
-                            messages = self.client.beta.threads.messages.list(
+                            messages = await self.client.beta.threads.messages.list(
                                 thread_id=self.thread_id, limit=10, order="desc"
                             )
-                        except openai.OpenAIError as e:
+                        except OpenAIError as e:
                             self.log_event(
                                 f"messages.list error | run_id={run.id} | thread_id={self.thread_id} | code={getattr(e, 'code', 'unknown')} | message={getattr(e, 'message', str(e))}",
                                 "error",
@@ -362,7 +362,7 @@ class LizzieAgent:
                     " Let's try from another angle."
                 )
 
-        except openai.OpenAIError as e:
+        except OpenAIError as e:
             self.log_event(
                 f"OpenAI API error | code={getattr(e, 'code', 'unknown')} | message={getattr(e, 'message', str(e))}",
                 "error",
