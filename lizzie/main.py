@@ -71,15 +71,12 @@ async def handle_message(update, context):
         )
         
         # Use real Lizzie with full prompt and logic
-        logger.info("🔥 CALLING lizzie.chat()...")
         response = await lizzie.chat(message_text)
-        logger.info(f"🔥 LIZZIE RESPONDED: {response[:100]}...")
         await update.message.reply_text(response)
         logger.info(f"Response sent to user {user_id}: {response[:50]}...")
         
     except Exception as e:
-        logger.error(f"🔥 FULL ERROR: {type(e).__name__}: {str(e)}", exc_info=True)
-        logger.error(f"🔥 ERROR DETAILS: {repr(e)}")
+        logger.error(f"Error processing message from user {user_id}: {e}")
         error_response = (
             "The resonance encounters turbulence. "
             "Let's try from another angle in a moment."
@@ -180,9 +177,6 @@ async def main():
     """Main function - runs both FastAPI and Telegram bot."""
     
     logger.info("=== Lizzie Unified Startup ===")
-    logger.info("🔥 DIAGNOSTIC: This is the REAL main.py - not a test bot!")
-    logger.info(f"🔥 File path: {__file__}")
-    logger.info(f"🔥 Current working directory: {os.getcwd()}")
     
     # Check required environment variables
     lizzie_token = os.getenv("LIZZIE_TOKEN")
