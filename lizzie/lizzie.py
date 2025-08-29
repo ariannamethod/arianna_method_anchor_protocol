@@ -204,17 +204,12 @@ class LizzieAgent:
             await self._ensure_assistant()
             await self._ensure_thread()
 
-            # Инициализируем общую логику ПОСЛЕ инициализации клиента
-            import sys
-            from pathlib import Path
-            sys.path.insert(0, str(Path(__file__).parent.parent))
+            # Используем общую логику
             from arianna_utils.agent_logic import get_agent_logic
             logic = get_agent_logic("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
             
-            # Строим контекст из цитирований
+            # Строим контекст из цитирований  
             context_block = await logic.build_context_block(message)
-            
-            # Если есть контекст, добавляем его к сообщению
             enhanced_message = f"{context_block}{message}" if context_block else message
 
             # Add enhanced message to thread
