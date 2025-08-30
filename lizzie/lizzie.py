@@ -227,18 +227,34 @@ class LizzieAgent:
             }
             lizzie_formatter = create_agent_file_formatter("lizzie", lizzie_style)
             
-            # Проверяем команду /file для обработки файлов
-            if message.strip().startswith('/file '):
-                file_path = message.strip()[6:].strip()  # убираем '/file '
-                try:
-                    file_result = await logic.process_file_context(file_path, lizzie_formatter)
-                    return f"Файл обработан через резонанс:\n\n{file_result}"
-                except Exception as e:
-                    return f"Не могу обработать файл: {str(e)}. Попробуем другой подход к резонансу."
+            # Автоматическое распознавание файлов (как у Tommy)
+            # Проверяем есть ли путь к файлу в сообщении
+            import re
+            file_patterns = [
+                r'(?:^|\s)([./][\w/.-]+\.[\w]+)',  # ./file.txt, /path/file.py
+                r'(?:^|\s)([\w/.-]+\.(?:py|txt|md|json|yaml|yml|js|ts|html|css))',  # file.py
+            ]
+            
+            for pattern in file_patterns:
+                matches = re.findall(pattern, message)
+                if matches:
+                    file_path = matches[0].strip()
+                    try:
+                        file_result = await logic.process_file_context(file_path, lizzie_formatter)
+                        # Добавляем результат к контексту вместо возврата
+                        enhanced_message = f"[Файл {file_path} обработан]\n{file_result}\n\n{message}"
+                        break
+                    except Exception as e:
+                        # Продолжаем обычный диалог если файл не найден
+                        pass
             
             # Строим контекст из цитирований  
             context_block = await logic.build_context_block(message)
-            enhanced_message = f"{context_block}{message}" if context_block else message
+            if 'enhanced_message' not in locals():
+                enhanced_message = f"{context_block}{message}" if context_block else message
+            else:
+                # Добавляем контекст к уже обработанному файлу
+                enhanced_message = f"{context_block}{enhanced_message}" if context_block else enhanced_message
 
             # Add enhanced message to thread
             start = time.monotonic()
