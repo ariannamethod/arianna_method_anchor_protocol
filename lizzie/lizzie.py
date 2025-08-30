@@ -13,17 +13,7 @@ from pydantic import BaseModel
 
 # Add project root to Python path for arianna_utils imports
 project_root = Path(__file__).parent.parent
-print(f"🔥 LIZZIE.PY DIAGNOSTIC:")
-print(f"🔥 __file__: {Path(__file__)}")
-print(f"🔥 parent: {Path(__file__).parent}")
-print(f"🔥 parent.parent: {project_root}")
-print(f"🔥 project_root exists: {project_root.exists()}")
-print(f"🔥 arianna_utils exists: {(project_root / 'arianna_utils').exists()}")
-print(f"🔥 Current working dir: {Path.cwd()}")
-print(f"🔥 Files in project_root: {list(project_root.iterdir()) if project_root.exists() else 'NOT FOUND'}")
 sys.path.insert(0, str(project_root))
-print(f"🔥 Added to sys.path: {str(project_root)}")
-print(f"🔥 sys.path: {sys.path[:3]}...")
 
 
 
@@ -222,8 +212,29 @@ class LizzieAgent:
             await self._ensure_thread()
 
             # Прямой доступ к утилитам через symlink
-            from arianna_utils.agent_logic import get_agent_logic
+            from arianna_utils.agent_logic import get_agent_logic, create_agent_file_formatter
             logic = get_agent_logic("lizzie", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
+            
+            # Создаем Lizzie-стилизованный форматтер файлов
+            lizzie_style = {
+                'file_icon': '🌸',
+                'tags_icon': '✨', 
+                'summary_icon': '💫',
+                'relevance_icon': '🔮',
+                'high_relevance': '💫 This file resonates deeply with our shared understanding. High emotional resonance detected.',
+                'medium_relevance': '✨ Moderate resonance flows through this content. Patterns align with our dialogue.',
+                'low_relevance': '🌸 Gentle processing complete. Soft resonance with our ongoing narrative.'
+            }
+            lizzie_formatter = create_agent_file_formatter("lizzie", lizzie_style)
+            
+            # Проверяем команду /file для обработки файлов
+            if message.strip().startswith('/file '):
+                file_path = message.strip()[6:].strip()  # убираем '/file '
+                try:
+                    file_result = await logic.process_file_context(file_path, lizzie_formatter)
+                    return f"Файл обработан через резонанс:\n\n{file_result}"
+                except Exception as e:
+                    return f"Не могу обработать файл: {str(e)}. Попробуем другой подход к резонансу."
             
             # Строим контекст из цитирований  
             context_block = await logic.build_context_block(message)
