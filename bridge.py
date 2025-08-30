@@ -77,7 +77,7 @@ class LetsGoProcess:
             self.proc = await asyncio.wait_for(
                 asyncio.create_subprocess_exec(
                     "python",
-                    "letsgo.py",
+                    "arianna_method/core/letsgo.py",
                     "--no-color",
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
