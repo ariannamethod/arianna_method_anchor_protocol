@@ -33,7 +33,8 @@ print(f"🔥 Parent dir exists: {Path('..').exists()}")
 if Path('..').exists():
     print(f"🔥 Files in parent: {os.listdir('..')}")
 print(f"🔥 sys.path: {sys.path[:3]}")
-print(f"🔥 arianna_utils exists: {Path('../arianna_utils').exists()}")
+print(f"🔥 arianna_utils exists: {Path('arianna_utils').exists()}")
+print(f"🔥 arianna_utils files: {list(Path('arianna_utils').iterdir()) if Path('arianna_utils').exists() else 'NOT FOUND'}")
 
 import lizzie
 from lizzie import app as fastapi_app
