@@ -228,6 +228,12 @@ async def chat(message: str) -> str:
         else:
             mood = await _mood_echo()
             response = f"{response}\n{mood}" if response else mood
+        
+        # Всегда добавляем mood в конец (принципиальный момент экосистемы)
+        if not response.endswith(await _mood_echo()):
+            mood = await _mood_echo()
+            response = f"{response}\n{mood}"
+            
         # Используем общую логику для логирования
         logic.log_event(f"Tommy chat: {response[:50]}...")
         logic.update_resonance(message, response, role="guardian", sentiment=_compute_sentiment(response))
