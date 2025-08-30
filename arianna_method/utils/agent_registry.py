@@ -98,6 +98,9 @@ def auto_register_agents() -> None:
     
     # Пытаемся зарегистрировать Tommy
     try:
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent))
         from tommy import tommy
         _global_registry.register_agent("tommy", tommy.chat, is_fallback=True)
         logger.info("Tommy registered as fallback agent")
