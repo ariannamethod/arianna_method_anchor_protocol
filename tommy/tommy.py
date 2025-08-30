@@ -171,7 +171,7 @@ async def _mood_echo() -> str:
         "import random;"
         "moods={'calm':'(-‿‿-)','curious':'(o_O)','charged':'⚡','free':'ʕ•ᴥ•ʔ'};"
         "mood,art=random.choice(list(moods.items()));"
-        "print(f'Tommy mood: {mood}\n{art}')"
+        "print(f'Tommy mood: {mood}\\n{art}')"
     )
     proc = await asyncio.create_subprocess_exec(
         sys.executable,
