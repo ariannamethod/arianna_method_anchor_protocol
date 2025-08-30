@@ -5,6 +5,7 @@ import re
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Union, Optional
 import sqlite3
 
 LOG_DIR = Path("logs/wulf")
@@ -83,8 +84,8 @@ def log_event(msg: str, log_type: str = "info") -> None:
 
 
 def get_last_user_command(
-    offset: int = 1, exclude: set[str] | None = None
-) -> str | None:
+    offset: int = 1, exclude: Optional[set] = None
+) -> Optional[str]:
     exclude = exclude or set()
     with sqlite3.connect(DB_PATH, timeout=30) as conn:
         cur = conn.execute(
@@ -184,7 +185,7 @@ async def _mood_echo() -> str:
 
 
 async def chat(message: str) -> str:
-    from arianna_utils.agent_logic import get_agent_logic
+    from arianna_method.utils.agent_logic import get_agent_logic
 
     # Инициализируем общую логику для Tommy
     logic = get_agent_logic("tommy", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
