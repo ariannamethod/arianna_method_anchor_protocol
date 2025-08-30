@@ -22,7 +22,7 @@ from typing import Optional, List, Tuple, Dict, Any
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from arianna_utils.vector_store import SQLiteVectorStore, embed_text
+from .vector_store import SQLiteVectorStore, embed_text
 
 
 class AgentLogic:
