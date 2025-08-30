@@ -1,7 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arianna-method"
+version = "0.1.0"
+description = "Arianna Method - AI Agent Ecosystem"
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.20.0",
+    "python-telegram-bot>=20.0",
+    "python-multipart>=0.0.9",
+    "aiohttp>=3.9.0",
+    "numpy>=1.26.0",
+    "beautifulsoup4>=4.8.0",
+    "pypdf>=4.2.0",
+    "python-docx>=1.1.0",
+    "striprtf>=0.0.26",
+    "textract>=1.6.0",
+    "odfpy>=1.4.0",
+    "pillow>=10.4.0",
+    "pandas>=2.2.0",
+    "pyyaml>=6.0.0",
+    "rarfile>=4.2.0",
+    "black>=24.4.0",
+    "flake8>=7.0.0",
+    "pytest>=8.2.0",
+    "openai>=1.0.0",
+]
+
 [tool.black]
 line-length = 88
 
 [tool.flake8]
 max-line-length = 88
 extend-ignore = ["E203", "W503"]
-
