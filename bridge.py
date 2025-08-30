@@ -38,7 +38,7 @@ from telegram.ext import (
     filters,
 )
 from telegram.constants import ChatAction
-from .letsgo import CORE_COMMANDS
+from arianna_method.core.letsgo import CORE_COMMANDS
 import uvicorn
 
 PROMPT = ">>"
