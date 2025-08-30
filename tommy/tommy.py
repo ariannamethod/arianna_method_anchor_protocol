@@ -191,9 +191,11 @@ async def chat(message: str) -> str:
     logic = get_agent_logic("tommy", LOG_DIR, DB_PATH, RESONANCE_DB_PATH)
 
     try:
-        from letsgo import CORE_COMMANDS
+        from arianna_method.core.letsgo import CORE_COMMANDS
         commands = ", ".join(sorted(CORE_COMMANDS.keys()))
-    except Exception:
+        logic.log_event(f"Terminal access OK, commands: {len(CORE_COMMANDS)}", "debug")
+    except Exception as e:
+        logic.log_event(f"Terminal access failed: {e}", "error")
         commands = ""
 
     # Используем общую логику для контекста
@@ -230,9 +232,13 @@ async def chat(message: str) -> str:
             response = f"{response}\n{mood}" if response else mood
         
         # Всегда добавляем mood в конец (принципиальный момент экосистемы)
-        if not response.endswith(await _mood_echo()):
+        try:
             mood = await _mood_echo()
+            logic.log_event(f"Mood script result: {mood}", "debug")
             response = f"{response}\n{mood}"
+        except Exception as mood_error:
+            logic.log_event(f"Mood script failed: {mood_error}", "error")
+            response = f"{response}\nTommy mood: charged\n⚡"
             
         # Используем общую логику для логирования
         logic.log_event(f"Tommy chat: {response[:50]}...")
