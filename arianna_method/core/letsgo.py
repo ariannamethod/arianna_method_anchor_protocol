@@ -35,6 +35,9 @@ import textwrap
 import ast
 # Removed direct tommy imports - now using agent registry
 try:
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     from arianna_method.utils.agent_registry import chat_with_agent, get_available_agents
     AGENTS_AVAILABLE = True
 except ImportError:
