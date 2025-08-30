@@ -38,7 +38,7 @@ from telegram.ext import (
     filters,
 )
 from telegram.constants import ChatAction
-from letsgo import CORE_COMMANDS
+from .letsgo import CORE_COMMANDS
 import uvicorn
 
 PROMPT = ">>"
@@ -309,8 +309,10 @@ async def upload_file(
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     dest = os.path.join(UPLOAD_DIR, file.filename)
     with open(dest, "wb") as fh:
-        while chunk := await file.read(8192):
+        chunk = await file.read(8192)
+        while chunk:
             fh.write(chunk)
+            chunk = await file.read(8192)
     return {"filename": file.filename}
 
 
