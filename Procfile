@@ -1,1 +1,1 @@
-web: python bridge.py
+web: python arianna_method/core/bridge.py
