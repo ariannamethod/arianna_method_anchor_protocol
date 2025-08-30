@@ -9,7 +9,10 @@ import sys
 import readline
 import atexit
 import asyncio
-import importlib.metadata as importlib_metadata
+try:
+    import importlib.metadata as importlib_metadata
+except ImportError:
+    import importlib_metadata
 from datetime import datetime
 from pathlib import Path
 from collections import deque
@@ -21,6 +24,8 @@ from typing import (
     Iterable,
     List,
     Tuple,
+    Union,
+    Optional,
 )
 from dataclasses import dataclass, asdict
 import re
@@ -30,12 +35,12 @@ import textwrap
 import ast
 # Removed direct tommy imports - now using agent registry
 try:
-    from arianna_utils.agent_registry import chat_with_agent, get_available_agents
+    from arianna_method.utils.agent_registry import chat_with_agent, get_available_agents
     AGENTS_AVAILABLE = True
 except ImportError:
     AGENTS_AVAILABLE = False
     
-# Keep file processing import for /file command
+# Keep file processing import for /file command  
 try:
     from tommy.tommy_logic import process_file_with_context
 except ImportError:
@@ -115,7 +120,7 @@ SETTINGS = _load_settings()
 USE_COLOR = USE_COLOR and SETTINGS.use_color
 
 
-def _save_settings(path: Path | None = None) -> None:
+def _save_settings(path: Optional[Path] = None) -> None:
     path = path or CONFIG_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as fh:
@@ -136,7 +141,7 @@ PY_TIMEOUT = 5
 
 ERROR_LOG_PATH = LOG_DIR / "errors.log"
 
-Handler = Callable[[str], Awaitable[Tuple[str, str | None]]]
+Handler = Callable[[str], Awaitable[Tuple[str, Optional[str]]]]
 
 
 def _ensure_log_dir() -> None:
@@ -289,7 +294,7 @@ async def async_input(prompt: str) -> str:
 
 async def run_command(
     command: str,
-    on_line: Callable[[str], None] | None = None,
+    on_line: Optional[Callable[[str], None]] = None,
     timeout: int = SETTINGS.command_timeout,
 ) -> Tuple[str, int, float]:
     """Execute ``command`` and return its output, exit code and duration."""
@@ -368,7 +373,7 @@ def _iter_log_lines() -> Iterable[str]:
 
 
 def summarize(
-    term: str | None = None,
+    term: Optional[str] = None,
     limit: int = 5,
     history: bool = False,
 ) -> str:
@@ -414,7 +419,7 @@ def search_history(pattern: str) -> str:
     return "\n".join(matches) if matches else "no matches"
 
 
-async def handle_status(_: str) -> Tuple[str, str | None]:
+async def handle_status(_: str) -> Tuple[str, Optional[str]]:
     reply = status()
     return reply, color(reply, SETTINGS.green)
 
